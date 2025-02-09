@@ -21,7 +21,7 @@ class DrowsinessDetector(QMainWindow): #Defines DrowsinessDetector, inheriting f
         # Store current states.
         self.yawn_state = ''
         self.eyes_state =''
-        self.left_eyes_state = ''
+        self.left_eye_state = ''
         self.right_eye_state = ''
         self.alert_text = ''
 
@@ -59,7 +59,7 @@ class DrowsinessDetector(QMainWindow): #Defines DrowsinessDetector, inheriting f
 
         self.update_info()
         
-        self.detectdrowsiness = YOLO(r"D:\grad project\driver_fatigue\models\bestYawn.pt")
+        self.detectdrowsiness = YOLO(r"D:\grad project\driver_fatigue\models\best_ours.pt")
 
         self.cap = cv2.VideoCapture(0)
         time.sleep(1.000)
@@ -96,9 +96,9 @@ class DrowsinessDetector(QMainWindow): #Defines DrowsinessDetector, inheriting f
             f"<h2 style='text-align: center; color: #4CAF50;'>Drowsiness Detector</h2>"
             f"<hr style='border: 1px solid #4CAF50;'>"
             f"{self.alert_text}"  # Display alert if it exists
-            f"<p><b> Blinks:</b> {self.blinks}</p>"
+            f"<p><b> Blinks:</b> {self.num_of_blinks}</p>"
             f"<p><b> Microsleeps:</b> {round(self.microsleep_duration,2)} seconds</p>"
-            f"<p><b> Yawns:</b> {self.yawns}</p>"
+            f"<p><b> Yawns:</b> {self.num_of_yawns}</p>"
             f"<p><b> Yawning Duration:</b> {round(self.yawn_duration,2)} seconds</p>"
             f"<hr style='border: 1px solid #4CAF50;'>"
             f"</div>"
@@ -178,7 +178,7 @@ class DrowsinessDetector(QMainWindow): #Defines DrowsinessDetector, inheriting f
                             try:
                                 self.left_eye_state = self.predict(left_eye_roi, self.left_eye_state)
                                 self.right_eye_state = self.predict(right_eye_roi, self.right_eye_state)
-                                self.yawn_state = self.predict(mouth_roi)
+                                self.yawn_state = self.predict(mouth_roi,self.yawn_state)
 
                             except Exception as e:
                                 print(f"Error in realizing the prediciton: {e}")
