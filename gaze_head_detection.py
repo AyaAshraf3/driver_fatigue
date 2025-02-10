@@ -11,7 +11,8 @@ class GazeHeadDetection(threading.Thread):
         self.pitch = 0.0
         self.yaw = 0.0
         self.roll = 0.0
-        self.gaze_status = "Center"
+        self.gaze_direction="Center"
+        self.gaze_status = "Normal"
         self.head_status = "Normal"
         self.running = True
         self.frame = None  # Frame to be processed
@@ -22,6 +23,7 @@ class GazeHeadDetection(threading.Thread):
         self.baseline_pitch, self.baseline_yaw, self.baseline_roll = 0, 0, 0  # Initialize baseline angles for head movement
         self.baseline_data = []     # Store head movement angles for baseline calculation
         self.baseline_set = False   # Flag to indicate whether baseline is established
+        self.baseline_flag = 0
         self.distraction_counter = 0
         #time_limit_counter = 100  #  minutes in seconds
         self.start_time_counter = time.time()  # Initialize start time
@@ -29,6 +31,7 @@ class GazeHeadDetection(threading.Thread):
 
         self.temp=0
         self.temg_g=0
+        self.baseline_flag=0
 
         # Global variables for gaze and head movement detection 
         self.gaze_start_time = None        # Start time for abnormal gaze detection
@@ -41,11 +44,14 @@ class GazeHeadDetection(threading.Thread):
         self.distraction_flag_head=0
         self.distraction_flag_gaze=0
         
-        
         #GUI flags
         self.flag_gui= False
         self.gaze_gui='Center'
         self.gaze_status_gui= 0
+
+
+        self.elapsed_time_counter=0
+        self.time_limit_counter=5
         
     def calculate_angles(self, landmarks, frame_width, frame_height):
         # Compute angles (same logic as before)
@@ -185,6 +191,7 @@ class GazeHeadDetection(threading.Thread):
                                 # Compute baseline averages
                                 self.baseline_pitch, self.baseline_yaw, self.baseline_roll = np.mean(self.baseline_data, axis=0)
                                 self.baseline_set = True  # Mark baseline as set
+                                self.baseline_flag=1
                                 
                         
                         else:
@@ -234,19 +241,17 @@ class GazeHeadDetection(threading.Thread):
 
                         # ✅ Step 1: Detect Gaze Direction
                         if left_iris_position_x < -0.1:
-                            self.gaze_status = "Right"
+                            self.gaze_direction = "Right"
                         elif left_iris_position_x > 0.1:
-                            self.gaze_status = "Left"
+                            self.gaze_direction = "Left"
                         else:
-                            self.gaze_status = self.process_blink_and_gaze("Center", 
+                            self.gaze_direction = self.process_blink_and_gaze("Center", 
                                                                            self.compute_ear(face_landmarks.landmark, left_eye_indices), 
                                                                            left_iris_position_y)
-
-                        
-                        gaze_gui = self.gaze_status  # Update GUI
+                    
                         
                         # ✅ Step 2: Detect Abnormal Gaze
-                        if self.gaze_status in ["Left", "Right", "Down", "Center Gazed"]:
+                        if self.gaze_direction in ["Left", "Right", "Down", "Center Gazed"]:
                             if self.gaze_start_time is None:
                                 self.gaze_start_time = time.time()
                             elif time.time() - self.gaze_start_time > gaze_abnormal_duration and not self.gaze_alert_triggered:
@@ -258,7 +263,7 @@ class GazeHeadDetection(threading.Thread):
                             self.gaze_start_time = None
                             self.gaze_alert_triggered = False
 
-                            if self.gaze_status == "Center":
+                            if self.gaze_direction == "Center":
                                 self.gaze_flag=False
                                 
                         # ✅ Step 3: Update Gaze Warnings
@@ -275,6 +280,24 @@ class GazeHeadDetection(threading.Thread):
                             self.distraction_counter += 1
                         else:
                             self.head_status = "NORMAL"
+    # -------------------------------------------- Distraction Handling --------------------------------------------
+
+
+                        # ✅ If distraction threshold is reached, trigger HIGH RISK alert
+                        if self.distraction_counter >= DISTRACTION_THRESHOLD and elapsed_time_counter < time_limit_counter:
+                            self.temp = 1
+                            self.temp_g = 1
+                            self.distraction_flag_head = 2
+                            self.distraction_flag_gaze = 2
+
+                            # Activate buzzer alert
+                            #buzzer_alert()
+                            
+                        elif self.elapsed_time_counter >= self.time_limit_counter:
+                            # ✅ Reset counter every 3 minutes
+                            print("⏳ 3 minutes passed. Resetting counter.")
+                            self.distraction_counter = 0
+                            self.start_time_counter = time.time()
                     
                 time.sleep(0.05)  # Slight delay to avoid high CPU usage
                 

@@ -60,7 +60,7 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
 
 
         # Load YOLO model
-        self.detect_drowsiness = YOLO(r"D:\grad project\driver_fatigue\models\best_ours2.pt")
+        self.detect_drowsiness = YOLO(r"D:\GRAD_PROJECT\driver_fatigue\models\best_ours.pt")
 
         self.cap = cv2.VideoCapture(0) # Capture video from webcam
         time.sleep(1.000)
@@ -107,36 +107,74 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
             pitch = self.gaze_head_detector.pitch
             yaw = self.gaze_head_detector.yaw
             roll = self.gaze_head_detector.roll
+            gaze_direction = self.gaze_head_detector.gaze_direction
             gaze_status = self.gaze_head_detector.gaze_status_gui
+            baseline_flag = self.gaze_head_detector.baseline_flag
+            distraction_counts = self.gaze_head_detector.distraction_counter
             head_status = "ABNORMAL" if self.gaze_head_detector.distraction_flag_head else "NORMAL"
-        
+
+        # Generate alert messages if necessary
+        self.alert_text = ""
         if round(self.microsleep_duration, 2) > microsleep_threshold:
             self.alert_text += "<p style='color: red; font-weight: bold;'>⚠️ Alert: Prolonged Microsleep Detected!</p>"
         if round(self.yawn_duration, 2) > yawning_threshold:
-            # self.play_sound_in_thread()
             self.alert_text += "<p style='color: orange; font-weight: bold;'>⚠️ Alert: Prolonged Yawn Detected!</p>"
-        
 
-        info_text = (
-            f"<div style='font-family: Arial, sans-serif; color: #333;'>"
-            f"<h2 style='text-align: center; color: #4CAF50;'>Drowsiness Detector</h2>"
-            f"<hr style='border: 1px solid #4CAF50;'>"
-            f"{self.alert_text}"  # Display alert if it exists
-            f"<p><b> Blinks:</b> {self.num_of_blinks}</p>"
-            f"<p><b> Microsleeps:</b> {round(self.microsleep_duration,2)} seconds</p>"
-            f"<p><b> Yawns:</b> {self.num_of_yawns}</p>"
-            f"<p><b> Yawning Duration:</b> {round(self.yawn_duration,2)} seconds</p>"
-            f"<p><b> Blinks per minute:</b> {self.blinks_per_minute} BPM</p>"
-            f"<p><b> Yawns per minute:</b> {self.yawns_per_minute} YPM</p>"
-            f"<hr style='border: 1px solid #4CAF50;'>"
-            f"<p><b>Gaze Status:</b> {gaze_status}</p>"
-            f"<p><b>Head Movement Status:</b> {head_status}</p>"
-            f"<p><b>Pitch:</b> {pitch:.2f}</p>"
-            f"<p><b>Yaw:</b> {yaw:.2f}</p>"
-            f"<p><b>roll:</b> {roll:.2f}</p>"
-            f"</div>"
-        )
+        # **BASELINE NOT SET (SHOW CALIBRATION MESSAGE)**
+        if baseline_flag == 0:
+            info_text = (
+                f"<div style='font-family: Arial, sans-serif; color: #333; padding: 10px; text-align: center;'>"
+                f"<h2 style='color: #4CAF50;'>🚗 Drowsiness Detector 🚗</h2>"
+                f"<hr style='border: 2px solid #4CAF50;'>"
+                f"<h3 style='color: #FF9800;'>⚙️ Setting Baseline... Please Keep Your Head Straight ⚙️</h3>"
+                f"<p style='color: #607D8B;'>We are calibrating normal head and gaze positions.</p>"
+                f"<p style='color: #607D8B;'>Stay still for a few seconds.</p>"
+                f"<hr style='border: 2px solid #4CAF50;'>"
+                f"</div>"
+            )
+
+        # **BASELINE SET (SHOW NORMAL DETECTION INFO)**
+        else:
+            info_text = (
+                f"<div style='font-family: Arial, sans-serif; color: #333; padding: 10px;'>"
+                f"<h2 style='text-align: center; color: #4CAF50;'>🚗 Drowsiness Detector 🚗</h2>"
+                f"<hr style='border: 2px solid #4CAF50;'>"
+
+                # Alert Section
+                f"<p style='color: red; font-weight: bold; text-align: center;'>{self.alert_text}</p>"
+
+                # Blink & Yawn Statistics
+                f"<h3 style='color: #2196F3;'>🔍 Detection Stats</h3>"
+                f"<p><b>👀 Blinks:</b> <span style='color: #FF9800;'>{self.num_of_blinks}</span></p>"
+                f"<p><b>😴 Microsleeps:</b> <span style='color: #E91E63;'>{round(self.microsleep_duration,2)} seconds</span></p>"
+                f"<p><b>😮 Yawns:</b> <span style='color: #795548;'>{self.num_of_yawns}</span></p>"
+                f"<p><b>⏳ Yawning Duration:</b> <span style='color: #9C27B0;'>{round(self.yawn_duration,2)} seconds</span></p>"
+                f"<p><b>📊 Blinks per minute:</b> <span style='color: #009688;'>{self.blinks_per_minute} BPM</span></p>"
+                f"<p><b>📊 Yawns per minute:</b> <span style='color: #009688;'>{self.yawns_per_minute} YPM</span></p>"
+
+                f"<hr style='border: 2px solid #4CAF50;'>"
+
+                # Gaze and Head Movement Section
+                f"<h3 style='color: #2196F3;'>👁️ Gaze & Head Tracking</h3>"
+                f"<p><b>🟡 Gaze Status:</b> <span style='color: {'red' if gaze_status == 'ABNORMAL GAZE' else 'green'};'>{gaze_status}</span></p>"
+                f"<p><b>👀 Gaze Direction:</b> <span style='color: #673AB7;'>{gaze_direction}</span></p>"
+                f"<p><b>🔴 Head Movement Status:</b> <span style='color: {'red' if head_status == 'ABNORMAL' else 'green'};'>{head_status}</span></p>"
+                f"<p><b>📏 Pitch:</b> <span style='color: #607D8B;'>{pitch:.2f}</span></p>"
+                f"<p><b>📏 Yaw:</b> <span style='color: #607D8B;'>{yaw:.2f}</span></p>"
+                f"<p><b>📏 Roll:</b> <span style='color: #607D8B;'>{roll:.2f}</span></p>"
+
+                f"<hr style='border: 2px solid #4CAF50;'>"
+
+                # Distraction Counter
+                f"<h3 style='color: #3F51B5;'>⚠️ Distraction Monitoring</h3>"
+                f"<p><b>⚠️ Distraction Count:</b> <span style='color: #D32F2F; font-weight: bold;'>{distraction_counts}</span></p>"
+
+                f"</div>"
+            )
+
+        # **Update the UI**
         self.info_label.setText(info_text)
+
 
     def predict(self, frame):
         """Sends the full frame for eye and yawn detection."""

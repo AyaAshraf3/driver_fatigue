@@ -60,7 +60,7 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         self.update_info()
 
         # Load YOLO model
-        self.detect_drowsiness = YOLO(r"D:\grad project\driver_fatigue\models\best_ours2.pt")
+        self.detect_drowsiness = YOLO(r"D:\GRAD_PROJECT\driver_fatigue\models\best_ours2.pt")
 
         self.cap = cv2.VideoCapture(0) # Capture video from webcam
         time.sleep(1.000)
