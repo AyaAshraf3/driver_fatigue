@@ -5,18 +5,41 @@ import winsound
 import cv2
 import numpy as np
 from ultralytics import YOLO
-import mediapipe as mp
 import sys
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QHBoxLayout, QWidget
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtCore import Qt
 from thresholds import *  # Import thresholds for blink and yawn detection
 
 
-class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting from QMainWindow (PyQt5 GUI)
+
+
+num_of_blinks_gui=0
+microsleep_duration_gui=0
+num_of_yawns_gui=0
+yawn_duration_gui=0
+blinks_per_minute_gui=0
+yawns_per_minute_gui=0
+
+
+#flags for alert on gui
+possibly_fatigued_alert=0
+highly_fatigued_alert=0
+possible_fatigue_alert=0
+
+
+class DrowsinessDetector(): 
     def __init__(self):
         super().__init__()
+        global num_of_blinks_gui
+        global microsleep_duration_gui
+        global num_of_yawns_gui
+        global yawn_duration_gui
+        global blinks_per_minute_gui
+        global yawns_per_minute_gui
 
+
+        #flags for alert on gui
+        global possibly_fatigued_alert
+        global highly_fatigued_alert
+        global possible_fatigue_alert
         # Store current states
         self.yawn_state = ''
         self.eyes_state = ''
@@ -39,25 +62,6 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         self.eyes_still_closed = False  # Track closed eye state
         self.yawn_in_progress = False # Track yawning state
 
-        self.setWindowTitle("Driver Fatigue Detection")
-        self.setGeometry(100, 100, 800, 600)
-        self.setStyleSheet("background-color: white;")
-
-        self.central_widget = QWidget(self)
-        self.setCentralWidget(self.central_widget)
-
-        self.layout = QHBoxLayout(self.central_widget)
-
-        self.video_label = QLabel(self)
-        self.video_label.setStyleSheet("border: 2px solid black;")
-        self.video_label.setFixedSize(640, 480)
-        self.layout.addWidget(self.video_label)
-
-        self.info_label = QLabel()
-        self.info_label.setStyleSheet("background-color: white; border: 1px solid black; padding: 10px;")
-        self.layout.addWidget(self.info_label)
-
-        self.update_info()
 
         # Load YOLO model
         self.detect_drowsiness = YOLO(r"D:\GRAD_PROJECT\driver_fatigue\models\best_ours2.pt")
@@ -83,31 +87,14 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         self.blink_yawn_thread.start()  # Start the blink/yawn tracking thread
         
 
-    def update_info(self):
-        if round(self.microsleep_duration, 2) > microsleep_threshold:
-            self.alert_text = "<p style='color: red; font-weight: bold;'>⚠️ Alert: Prolonged Microsleep Detected!</p>"
-        if round(self.yawn_duration, 2) > yawning_threshold:
-            # self.play_sound_in_thread()
-            self.alert_text = "<p style='color: orange; font-weight: bold;'>⚠️ Alert: Prolonged Yawn Detected!</p>"
-
-
-        info_text = (
-            f"<div style='font-family: Arial, sans-serif; color: #333;'>"
-            f"<h2 style='text-align: center; color: #4CAF50;'>Drowsiness Detector</h2>"
-            f"<hr style='border: 1px solid #4CAF50;'>"
-            f"{self.alert_text}"  # Display alert if it exists
-            f"<p><b> Blinks:</b> {self.num_of_blinks}</p>"
-            f"<p><b> Microsleeps:</b> {round(self.microsleep_duration,2)} seconds</p>"
-            f"<p><b> Yawns:</b> {self.num_of_yawns}</p>"
-            f"<p><b> Yawning Duration:</b> {round(self.yawn_duration,2)} seconds</p>"
-            f"<p><b> Blinks per minute:</b> {self.blinks_per_minute} BPM</p>"
-            f"<p><b> Yawns per minute:</b> {self.yawns_per_minute} YPM</p>"
-            f"<hr style='border: 1px solid #4CAF50;'>"
-            f"</div>"
-        )
-        self.info_label.setText(info_text)
 
     def predict(self, frame):
+        global num_of_blinks_gui
+        global microsleep_duration_gui
+        global num_of_yawns_gui
+        global yawn_duration_gui
+        global blinks_per_minute_gui
+        global yawns_per_minute_gui
         """Sends the full frame for eye and yawn detection."""
         results = self.detect_drowsiness.predict(frame)
         boxes = results[0].boxes
@@ -139,6 +126,12 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
                 break
 
     def process_frames(self):
+        global num_of_blinks_gui
+        global microsleep_duration_gui
+        global num_of_yawns_gui
+        global yawn_duration_gui
+        global blinks_per_minute_gui
+        global yawns_per_minute_gui
         """Processes each frame to detect eye state and yawning."""
         while not self.stop_event.is_set():
             try:
@@ -153,11 +146,14 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
                     if not self.eyes_still_closed:
                         self.eyes_still_closed = True
                         self.num_of_blinks += 1
+                        num_of_blinks_gui=self.num_of_blinks
                         self.current_blinks += 1
                     self.microsleep_duration += 45 / 1000
+                    microsleep_duration_gui = self.microsleep_duration
                 else:
                     self.eyes_still_closed = False
                     self.microsleep_duration = 0
+                    microsleep_duration_gui = self.microsleep_duration
 
                 # Handle yawn detection
                 if self.eyes_state == "Yawning":
@@ -165,19 +161,22 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
                         self.yawn_in_progress = True
                         self.yawn_finished = False
                     self.yawn_duration += 45 / 1000
+                    yawn_duration_gui=self.yawn_duration
                     if yawning_threshold < self.yawn_duration and self.yawn_finished is False:
                         self.yawn_finished = True
                         self.num_of_yawns += 1
+                        num_of_yawns_gui = self.num_of_yawns 
                         self.current_yawns += 1
                 else:
                     if self.yawn_in_progress:
                         self.yawn_in_progress = False
                         self.yawn_finished = True
                         self.yawn_duration = 0
+                        yawn_duration_gui=self.yawn_duration
                 
 
-                self.update_info()
-                self.display_frame(frame)
+                #self.update_info()
+                #self.display_frame(frame)
 
             except queue.Empty:
                 continue
@@ -185,34 +184,41 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 self.stop_event.set()
 
-    def display_frame(self, frame):
-        """Displays the processed frame in the PyQt5 GUI."""
-        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_image.shape
-        bytes_per_line = ch * w
-        convert_to_Qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-        p = convert_to_Qt_format.scaled(640, 480, Qt.KeepAspectRatio)
-        self.video_label.setPixmap(QPixmap.fromImage(p))
+
 
     def update_blink_yawn_rate(self):
+        global num_of_blinks_gui
+        global microsleep_duration_gui
+        global num_of_yawns_gui
+        global yawn_duration_gui
+        global blinks_per_minute_gui
+        global yawns_per_minute_gui
         """Updates blink and yawn rates every minute."""
         while not self.stop_event.is_set():
             time.sleep(self.time_window)  # Wait for 1 minute
             self.blinks_per_minute = self.current_blinks
+            blinks_per_minute_gui=self.blinks_per_minute
             self.yawns_per_minute = self.current_yawns
+            yawns_per_minute_gui=self.yawns_per_minute
             self.current_blinks = 0
             self.current_yawns = 0
             print(f"Updated Rates - Blinks: {self.blinks_per_minute} per min, Yawns: {self.yawns_per_minute} per min")
     
 
     def fatigue_detection(self,frame,blink_rate,yawning_rate,microsleep_duration):
+        global possibly_fatigued_alert
+        global highly_fatigued_alert
+        global possible_fatigue_alert
         if microsleep_duration > microsleep_threshold:
             #self.play_sound_in_thread()
-            self.show_alert_on_frame(frame, "Alert! Possible fatigue!")
+            #self.show_alert_on_frame(frame, "Alert! Possible fatigue!")
+            possible_fatigue_alert=1
         if blink_rate > 35 or yawning_rate > 5:
-            self.show_alert_on_frame(frame, "Alert! Driver is Highly fatigued!")
+            #self.show_alert_on_frame(frame, "Alert! Driver is Highly fatigued!")
+            highly_fatigued_alert=1
         elif blink_rate > 25 or yawning_rate > 3:
-            self.show_alert_on_frame(frame, "Alert! Driver is possibly fatigued!")
+            #self.show_alert_on_frame(frame, "Alert! Driver is possibly fatigued!")
+            possibly_fatigued_alert=1
 
 
     def play_alert_sound(self):
@@ -226,18 +232,5 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         sound_thread = threading.Thread(target=self.play_alert_sound)
         sound_thread.start()
 
-    def show_alert_on_frame(self, frame, text="Alert!"):
-        """Overlays alert text on the frame."""
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        position = (50, 50)
-        font_scale = 1
-        font_color = (0, 0, 255)
-        line_type = 2
-        cv2.putText(frame, text, position, font, font_scale, font_color, line_type)
 
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = DrowsinessDetector()
-    window.show()
-    sys.exit(app.exec_())

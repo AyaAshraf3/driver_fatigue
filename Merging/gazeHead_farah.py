@@ -7,6 +7,11 @@ from threading import Thread
 
 import tkinter as tk
 from PIL import Image, ImageTk
+from yawnBlink_farah import DrowsinessDetector
+import yawnBlink_farah as yb  # Import the script to access its global variables
+from thresholds import *
+
+
 
 # Global variables for GUI updates
 pitch_gui = 0.0
@@ -33,8 +38,8 @@ root.geometry("980x600")  # Adjust window size as needed
 
 # ========================= TITLE SECTION ========================= #
 title_label = tk.Label(
-    root, text="GAZE AND HEAD DETECTION",
-    font=("Courier New", 24, "bold"), fg="blue"
+    root, text="Driver's Fatigue and Distraction Module",
+    font=("Courier New", 22, "bold"), fg="blue"
 )
 title_label.pack(pady=10)  # Add padding below the title
 
@@ -54,49 +59,77 @@ text_frame.grid(row=0, column=1, padx=30, pady=30, sticky="nw")
 gaze_frame = tk.Frame(text_frame)
 gaze_frame.grid(row=0, column=0, sticky="w")
 
-gaze_label = tk.Label(gaze_frame, text="GAZE DETECTION", font=("Arial", 18, "bold"))
+gaze_label = tk.Label(gaze_frame, text="GAZE DETECTION", font=("Arial", 11, "bold"))
 gaze_label.pack(anchor="w")
 
-gaze_center_label = tk.Label(gaze_frame, text="Center: ", font=("Arial", 14))
+gaze_center_label = tk.Label(gaze_frame, text="Center: ", font=("Arial", 11))
 gaze_center_label.pack(anchor="w")
 
-gaze_status_label = tk.Label(gaze_frame, text="Status: ", font=("Arial", 14))
+gaze_status_label = tk.Label(gaze_frame, text="Status: ", font=("Arial", 11))
 gaze_status_label.pack(anchor="w")
 
 # ========================= HEAD DETECTION SECTION ========================= #
 head_frame = tk.Frame(text_frame)
 head_frame.grid(row=1, column=0, sticky="w", pady=(10, 0))
 
-head_label = tk.Label(head_frame, text="HEAD DETECTION", font=("Arial", 18, "bold"))
+head_label = tk.Label(head_frame, text="HEAD MOVEMENT", font=("Arial", 11, "bold"))
 head_label.pack(anchor="w")
 
-pitch_label = tk.Label(head_frame, text="Pitch: ", font=("Arial", 14))
+pitch_label = tk.Label(head_frame, text="Pitch: ", font=("Arial", 11))
 pitch_label.pack(anchor="w")
 
-yaw_label = tk.Label(head_frame, text="Yaw: ", font=("Arial", 14))
+yaw_label = tk.Label(head_frame, text="Yaw: ", font=("Arial", 11))
 yaw_label.pack(anchor="w")
 
-roll_label = tk.Label(head_frame, text="Roll: ", font=("Arial", 14))
+roll_label = tk.Label(head_frame, text="Roll: ", font=("Arial", 11))
 roll_label.pack(anchor="w")
 
-head_status_label = tk.Label(head_frame, text="Status: ", font=("Arial", 14))
+head_status_label = tk.Label(head_frame, text="Status: ", font=("Arial", 11))
 head_status_label.pack(anchor="w")
 
 # ========================= DISTRACTION SECTION ========================= #
 distraction_frame = tk.Frame(text_frame)
-distraction_frame.grid(row=2, column=0, sticky="w", pady=10)
+distraction_frame.grid(row=2, column=0, sticky="w")
 
-separator1 = tk.Label(distraction_frame, text="--------------------------------------------------", font=("Arial", 14))
-separator1.pack(anchor="w", pady=5)  # Separator
-
-distraction_label = tk.Label(distraction_frame, text="Distraction counts within 3 min:", font=("Arial", 14))
+distraction_label = tk.Label(distraction_frame, text="Num of Distraction/3 min:", font=("Arial", 11))
 distraction_label.pack(anchor="w")
+
+distraction_flag_label = tk.Label(distraction_frame, text="", font=("Arial", 11, "bold"))
+distraction_flag_label.pack(anchor="w")
 
 separator2 = tk.Label(distraction_frame, text="--------------------------------------------------", font=("Arial", 14))
 separator2.pack(anchor="w", pady=5)  # Separator
 
-distraction_flag_label = tk.Label(distraction_frame, text="", font=("Arial", 18, "bold"))
-distraction_flag_label.pack(anchor="w")
+
+# ========================= YAWN AND BLINK SECTION ========================= #
+yb_frame = tk.Frame(text_frame)
+yb_frame.grid(row=3, column=0, sticky="w")
+yawnandblink_label = tk.Label(yb_frame, text="YAWN AND BLINK DETECTION", font=("Arial", 11, "bold"))
+yawnandblink_label.pack(anchor="w")
+# Create labels for the drowsiness detection variables
+blinks_label = tk.Label(yb_frame, text=f"Blinks: {yb.num_of_blinks_gui}", font=("Arial", 11))
+blinks_label.pack(anchor="w")
+
+microsleep_label = tk.Label(yb_frame, text=f"Microsleep Duration: {yb.microsleep_duration_gui:.2f}s", font=("Arial", 12))
+microsleep_label.pack(anchor="w")
+
+yawns_label = tk.Label(yb_frame, text=f"Yawns: {yb.num_of_yawns_gui}", font=("Arial", 11))
+yawns_label.pack(anchor="w")
+
+yawn_duration_label = tk.Label(yb_frame, text=f"Yawn Duration: {yb.yawn_duration_gui:.2f}s", font=("Arial", 11))
+yawn_duration_label.pack(anchor="w")
+
+blinks_per_minute_label = tk.Label(yb_frame, text=f"Blinks Per Minute: {yb.blinks_per_minute_gui}", font=("Arial", 11))
+blinks_per_minute_label.pack(anchor="w")
+
+yawns_per_minute_label = tk.Label(yb_frame, text=f"Yawns Per Minute: {yb.yawns_per_minute_gui}", font=("Arial", 11))
+yawns_per_minute_label.pack(anchor="w")
+
+alert_label = tk.Label(yb_frame, text="", font=("Arial", 11, "bold"), fg="red")
+alert_label.pack(anchor="w")
+
+
+
 
 
 
@@ -105,7 +138,7 @@ class GazeAndHeadDetection:
 
     # Timers and state variables for baseline establishment
     start_time = time.time()  # Start time for collecting baseline head movement data
-    threshold_time = 10  # Time in seconds to collect baseline data
+    threshold_time = 20  # Time in seconds to collect baseline data
     baseline_pitch, baseline_yaw, baseline_roll = 0, 0, 0  # Stores the average baseline angles
     baseline_data = []  # List to accumulate head movement angles during baseline collection
     baseline_set = False  # Flag to check if baseline has been established
@@ -548,7 +581,7 @@ def update_info():
             warning_text += "🚨 HIGH RISK 🚨"
             warning_color = "red"
         elif distraction_flag_gaze == 1 and temp_g == 0:  # Moderate distraction due to gaze
-            warning_text += "⚠️ WARNING: Driver Distracted!"
+            warning_text += "⚠️WARNING: Driver Distracted!"
             warning_color = dark_orange
 
         # 🛑 Head Movement Warnings
@@ -556,7 +589,7 @@ def update_info():
             warning_text += "🚨 HIGH RISK 🚨"
             warning_color = "red"
         elif distraction_flag_head == 1 and temp == 0:  # Moderate distraction due to head movement
-            warning_text += "⚠️ WARNING: Driver Distracted!"
+            warning_text += "⚠️WARNING: Driver Distracted!"
             warning_color = dark_orange
 
         ### 📌 Updating the Warning Label ###
@@ -565,14 +598,54 @@ def update_info():
         else:
             distraction_flag_label.config(text=warning_text.strip(), fg=warning_color)  # Display warning message
 
+
+    #-----display wayn and blink-------#
+    yaw_label.config(text=f"Yaw: {yaw_gui:.2f} deg", fg="black")
+    blinks_label.config(text=f"num of blinks: {yb.num_of_blinks_gui}", fg="black")
+    microsleep_label.config(text=f"microsleep duration: {yb.microsleep_duration_gui} sec", fg="black")
+    yaw_label.config(text=f"num of yawns: {yb.num_of_yawns_gui}", fg="black")
+    yawn_duration_label.config(text=f"yawn duration: {yb.yawn_duration_gui} sec", fg="black")
+    blinks_per_minute_label.config(text=f"blinks/min: {yb.blinks_per_minute_gui} sec", fg="black")
+    yawns_per_minute_label.config(text=f"yawns/min: {yb.yawns_per_minute_gui} sec", fg="black")
+
+
+    # ----- Handle Fatigue Warnings (Display in Same Alert Area) ----- #
+    fatigue_alert_text = ""
+    fatigue_alert_color = "black"
+
+    if round(yb.microsleep_duration_gui, 2) > microsleep_threshold:
+        fatigue_alert_text = "⚠️Alert: Prolonged Microsleep Detected!"
+        fatigue_alert_color = "red"
+
+    elif round(yb.yawn_duration_gui, 2) > yawning_threshold:
+        fatigue_alert_text = "⚠️Alert: Prolonged Yawn Detected!"
+        fatigue_alert_color = "orange"
+
+    elif yb.microsleep_duration_gui > microsleep_threshold:
+        fatigue_alert_text = "⚠️Alert! Possible Fatigue!"
+        fatigue_alert_color = "red"
+
+    elif yb.blinks_per_minute_gui > 35 or yb.yawns_per_minute_gui > 5:
+        fatigue_alert_text = "⚠️Alert! Driver is Highly Fatigued!"
+        fatigue_alert_color = "red"
+
+    elif yb.blinks_per_minute_gui > 25 or yb.yawns_per_minute_gui > 3:
+        fatigue_alert_text = "⚠️ Alert! Driver is Possibly Fatigued!"
+        fatigue_alert_color = dark_orange
+
+    # Update alert area with fatigue warnings
+    alert_label.config(text=fatigue_alert_text, fg=fatigue_alert_color if fatigue_alert_text else "black")
+
     # 🔄 Schedule the function to run again in 500ms
     root.after(500, update_info)
 
 
 
 
-# Initialize the GazeAndHeadDetection class
+# Initialize both classes
 detector = GazeAndHeadDetection()
+drowsiness_detector = DrowsinessDetector()
+
 def update_video():
     ret, frame = cap.read()
 
@@ -582,15 +655,22 @@ def update_video():
         cv2.destroyAllWindows()
         return  # Exit function if no frame is captured
 
-    detector.process_frame(frame)  # ✅ Now correctly calls the instance method
+    # Process the frame in both classes
+    detector.process_frame(frame)  # Gaze and head tracking
+    drowsiness_detector.predict(frame)  # Drowsiness detection
 
+    # Convert frame for GUI display
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(frame_rgb)
     imgtk = ImageTk.PhotoImage(image=img)
     video_label.imgtk = imgtk
     video_label.configure(image=imgtk)
 
-    video_label.after(30, update_video)  # ✅ Prevent excessive function calls
+    # Update the GUI
+    update_info()  # Ensure the GUI reflects new global variables
+
+    video_label.after(30, update_video)  # Continue frame updates
+
 
 
 
@@ -599,14 +679,15 @@ def main():
     global cap
     cap = cv2.VideoCapture(0)  # Open webcam
 
-    # Start the GUI update thread
+    # Start GUI update thread
     Thread(target=update_info, daemon=True).start()
 
-    # ✅ Start processing video frames
+    # ✅ Start video processing for both classes
     update_video()
 
     # ✅ Run GUI
     root.mainloop()
+
 
 # Run the main function
 if __name__ == "__main__":
