@@ -3,7 +3,9 @@ import numpy as np
 import threading
 import time
 import cv2
+import platform
 from thresholds import *
+from threading import Thread
 
 class GazeHeadDetection(threading.Thread):
     def __init__(self):
@@ -28,7 +30,7 @@ class GazeHeadDetection(threading.Thread):
         self.no_blink_start_time = None  # Timer for no blink detection
 
         self.temp=0
-        self.temg_g=0
+        self.temp_g=0
 
         # Global variables for gaze and head movement detection 
         self.gaze_start_time = None        # Start time for abnormal gaze detection
@@ -40,6 +42,7 @@ class GazeHeadDetection(threading.Thread):
         self.gaze_flag = False 
         self.distraction_flag_head=0
         self.distraction_flag_gaze=0
+        self.head_status_gui='Normal'
         
         
         #GUI flags
@@ -124,6 +127,8 @@ class GazeHeadDetection(threading.Thread):
         # Reset distraction flags
         self.distraction_flag_head = 0  
         self.distraction_flag_gaze = 0  
+        self.temp = 0
+        self.temp_g = 0
 
         # Reset distraction counter after buzzer stops
         self.distraction_counter = 0  
@@ -176,6 +181,8 @@ class GazeHeadDetection(threading.Thread):
                 # -------------------------------------------- Head Movement Detection --------------------------------------------
                 if results.multi_face_landmarks:
                     for face_landmarks in results.multi_face_landmarks:
+                        
+                        # ✅ Step 1: Collect baseline angles if not set
                         if not self.baseline_set:
                             self.pitch, self.yaw, self.roll =self.calculate_angles(face_landmarks.landmark, w, h)
                             elapsed_time = time.time() - self.start_time 
@@ -211,6 +218,19 @@ class GazeHeadDetection(threading.Thread):
                             else:
                                 self.head_alert_start_time = None  # Reset timer
                                 self.head_alert_triggered = False
+                            
+                            # ✅ Step 4: Update GUI warnings
+                            if self.head_alert_triggered:
+                                if "Abnormal Pitch" in head_alerts:
+                                    self.head_status_gui = "ABNORMAL PITCH"
+                                elif "Abnormal Yaw" in head_alerts:
+                                    self.head_status_gui = "ABNORMAL YAW"
+                                elif "Abnormal Roll" in head_alerts:
+                                    self.head_status_gui = "ABNORMAL ROLL"
+                                self.distraction_flag_head = 1
+                            else:
+                                self.head_status_gui = "NORMAL"
+                                self.distraction_flag_head = 0
         # -------------------------------------------- Gaze Detection --------------------------------------------
                            
                         def get_center(landmarks, indices):
@@ -243,7 +263,7 @@ class GazeHeadDetection(threading.Thread):
                                                                            left_iris_position_y)
 
                         
-                        gaze_gui = self.gaze_status  # Update GUI
+                        self.gaze_gui = self.gaze_status  # Update GUI
                         
                         # ✅ Step 2: Detect Abnormal Gaze
                         if self.gaze_status in ["Left", "Right", "Down", "Center Gazed"]:
@@ -268,16 +288,60 @@ class GazeHeadDetection(threading.Thread):
                         else:
                             self.gaze_status_gui = "NORMAL"
                             self.distraction_flag_gaze = 0
+    
+      # -------------------------------------------- Distraction Handling --------------------------------------------
+                        if self.distraction_counter >= 4 and elapsed_time_counter < 180:
+                            self.temp = 1
+                            self.temp_g = 1
+                            self.distraction_flag_head = 2
+                            self.distraction_flag_gaze = 2
+                               # 🔄 Run buzzer asynchronously
+                            threading.Thread(target=self.buzzer_alert, daemon=True).start()
+
+                            # 🔄 Schedule reset without blocking
+                            threading.Timer(5, self.stop_buzzer).start()
+                            threading.Timer(9, self.reset_distraction_flag).start()
                             
-                        # Store Head Movement Status
-                        if abs(self.pitch) > 30 or abs(self.yaw) > 30 or abs(self.roll) > 20:
-                            self.head_status = "ABNORMAL"
-                            self.distraction_counter += 1
-                        else:
-                            self.head_status = "NORMAL"
+                        elif elapsed_time_counter >= 180:  # Reset counter every 3 minutes
+                            self.distraction_counter = 0
+                            self.start_time_counter = time.time()
+                            
+                       
                     
                 time.sleep(0.05)  # Slight delay to avoid high CPU usage
-                
+    
+    def action_after_buzzer(self):
+        self.temp=0
+        self.temp_g=0
+        
+    def stop_buzzer(self):
+        global buzzer_running
+        buzzer_running = False
+        
+    def buzzer_alert(self):
+        global buzzer_running
+        if buzzer_running:
+            return  # Prevent multiple buzzer threads
+        buzzer_running = True
+    
+        def play_buzzer():
+            for _ in range(5):  # Buzzer beeps 5 times
+                if platform.system() == "Windows":
+                    import winsound
+                    winsound.Beep(1000, 500)
+                else:
+                    import os
+                    os.system('play -nq -t alsa synth 0.5 sine 500')
+                time.sleep(1)
+
+        buzzer_thread = threading.Thread(target=play_buzzer, daemon=True)
+        buzzer_thread.start()  
+           
+        
+        buzzer_thread = Thread(target=play_buzzer, daemon=True)
+        buzzer_thread.start()
+    
+    
     # Function to check if head movement angles exceed thresholds
     def check_abnormal_angles(self,pitch, yaw, roll, movement_type):
         alerts = []                     

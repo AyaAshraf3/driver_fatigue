@@ -92,15 +92,27 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         """Detects fatigue and distraction warnings based on multiple factors."""
         self.alert_text = ""
         if blink_rate > 35 or yawning_rate > 5:
-            self.alert_text = "🚨 High Fatigue Risk!"
+            self.alert_text += "🚨 High Fatigue Risk!"
         elif blink_rate > 25 or yawning_rate > 3:
-            self.alert_text = "⚠️ Possible Fatigue!"
-            
-        if gaze_status == "ABNORMAL GAZE":
-            self.alert_text += " 🚨 Abnormal Gaze Detected!"
+            self.alert_text += "⚠️ Possible Fatigue!"
         
-        if head_status == "ABNORMAL":
-            self.alert_text += " 🚨 Unsafe Head Movement!"
+        ### 📌 Checking Distraction Warnings ###
+
+        # 🛑 Gaze Warnings
+        if self.gaze_head_detector.distraction_flag_gaze == 2 and self.gaze_head_detector.temp_g == 1:  # High risk due to gaze
+            self.alert_text += "🚨 HIGH RISK , KEEP YOUR GAZE ON THE ROAD 🚨"
+            
+        elif self.gaze_head_detector.distraction_flag_gaze == 1 and self.gaze_head_detector.temp_g == 0:  # Moderate distraction due to gaze
+            self.alert_text += "⚠️ WARNING: Driver Distracted!"
+
+        # 🛑 Head Movement Warnings
+        if self.gaze_head_detector.distraction_flag_head == 2 and self.gaze_head_detector.temp == 1:  # High risk due to head movement
+            self.alert_text += "🚨 HIGH RISK , DRIVER IS SLEEPING🚨"
+            
+        elif self.gaze_head_detector.distraction_flag_head == 1 and self.gaze_head_detector.temp == 0:  # Moderate distraction due to head movement
+            self.alert_text += "⚠️ WARNING: Driver Distracted!"
+        
+        self.update_info()
 
     def update_info(self):
         with self.gaze_head_detector.lock:
@@ -108,16 +120,18 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
             yaw = self.gaze_head_detector.yaw
             roll = self.gaze_head_detector.roll
             gaze_status = self.gaze_head_detector.gaze_status_gui
+            gaze_position = self.gaze_head_detector.gaze_status  # Left, Right, Center, etc.
             head_status = "ABNORMAL" if self.gaze_head_detector.distraction_flag_head else "NORMAL"
-        
+            distraction_count = self.gaze_head_detector.distraction_counter  # Track distraction count
+
         if round(self.microsleep_duration, 2) > microsleep_threshold:
             self.alert_text += "<p style='color: red; font-weight: bold;'>⚠️ Alert: Prolonged Microsleep Detected!</p>"
         if round(self.yawn_duration, 2) > yawning_threshold:
             # self.play_sound_in_thread()
             self.alert_text += "<p style='color: orange; font-weight: bold;'>⚠️ Alert: Prolonged Yawn Detected!</p>"
         
-
-        info_text = (
+        if self.gaze_head_detector.flag_gui==0:
+            info_text = (
             f"<div style='font-family: Arial, sans-serif; color: #333;'>"
             f"<h2 style='text-align: center; color: #4CAF50;'>Drowsiness Detector</h2>"
             f"<hr style='border: 1px solid #4CAF50;'>"
@@ -129,11 +143,51 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
             f"<p><b> Blinks per minute:</b> {self.blinks_per_minute} BPM</p>"
             f"<p><b> Yawns per minute:</b> {self.yawns_per_minute} YPM</p>"
             f"<hr style='border: 1px solid #4CAF50;'>"
-            f"<p><b>Gaze Status:</b> {gaze_status}</p>"
-            f"<p><b>Head Movement Status:</b> {head_status}</p>"
-            f"<p><b>Pitch:</b> {pitch:.2f}</p>"
-            f"<p><b>Yaw:</b> {yaw:.2f}</p>"
-            f"<p><b>roll:</b> {roll:.2f}</p>"
+           # Gaze Detection Section
+            f"<h3 style='color: #000;'>GAZE DETECTION</h3>"
+            f"<p><b>Position:</b> {"setting baseline.."}</p>"
+            f"Gaze Status: {"setting baseline.."} ✅</p>"
+            # Head Detection Section
+            f"<h3 style='color: #000;'>HEAD DETECTION</h3>"
+            f"<p><b>Pitch:</b> {"setting baseline.."}°</p>"
+            f"<p><b>Yaw:</b> {"setting baseline.."}°</p>"
+            f"<p><b>Roll:</b> {"setting baseline.."}°</p>"
+            f"Head Status: {"setting baseline.."} ✅</p>"
+            # Distraction Count
+            f"<hr style='border: 1px solid #4CAF50;'>"
+            f"<p><b>Distraction Count within 3 min:</b> {distraction_count}</p>"
+            f"<hr style='border: 1px solid #4CAF50;'>"
+            f"</div>"
+        )
+        elif self.gaze_head_detector.flag_gui==1:
+            info_text = (
+            f"<div style='font-family: Arial, sans-serif; color: #333;'>"
+            f"<h2 style='text-align: center; color: #4CAF50;'>Drowsiness Detector</h2>"
+            f"<hr style='border: 1px solid #4CAF50;'>"
+            f"{self.alert_text}"  # Display alert if it exists
+            f"<p><b> Blinks:</b> {self.num_of_blinks}</p>"
+            f"<p><b> Microsleeps:</b> {round(self.microsleep_duration,2)} seconds</p>"
+            f"<p><b> Yawns:</b> {self.num_of_yawns}</p>"
+            f"<p><b> Yawning Duration:</b> {round(self.yawn_duration,2)} seconds</p>"
+            f"<p><b> Blinks per minute:</b> {self.blinks_per_minute} BPM</p>"
+            f"<p><b> Yawns per minute:</b> {self.yawns_per_minute} YPM</p>"
+            f"<hr style='border: 1px solid #4CAF50;'>"
+           # Gaze Detection Section
+            f"<h3 style='color: #000;'>GAZE DETECTION</h3>"
+            f"<p><b>Position:</b> {gaze_position}</p>"
+            f"<p style='color: {'green' if gaze_status == 'NORMAL' else 'red'}; font-weight: bold;'>"
+            f"Gaze Status: {gaze_status} ✅</p>"
+            # Head Detection Section
+            f"<h3 style='color: #000;'>HEAD DETECTION</h3>"
+            f"<p><b>Pitch:</b> {pitch:.2f}°</p>"
+            f"<p><b>Yaw:</b> {yaw:.2f}°</p>"
+            f"<p><b>Roll:</b> {roll:.2f}°</p>"
+            f"<p style='color: {'green' if head_status == 'NORMAL' else 'red'}; font-weight: bold;'>"
+            f"Head Status: {head_status} ✅</p>"
+            # Distraction Count
+            f"<hr style='border: 1px solid #4CAF50;'>"
+            f"<p><b>Distraction Count within 3 min:</b> {distraction_count}</p>"
+            f"<hr style='border: 1px solid #4CAF50;'>"
             f"</div>"
         )
         self.info_label.setText(info_text)
@@ -181,8 +235,7 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
                   # Get Gaze & Head Movement Data
                 gaze_status = self.gaze_head_detector.gaze_status_gui
                 head_status = "ABNORMAL" if self.gaze_head_detector.distraction_flag_head else "NORMAL"
-                self.update_info()
-                self.display_frame(frame)
+        
                 
                 try:
                     self.eyes_state = self.predict(frame)  # Predict on whole frame
