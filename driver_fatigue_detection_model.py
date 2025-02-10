@@ -9,14 +9,33 @@ import mediapipe as mp
 import sys
 from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QHBoxLayout, QWidget
 from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt , QTimer
 from thresholds import *  # Import thresholds for blink and yawn detection
 from gaze_head_detection import GazeHeadDetection  # Import gaze and head pose detection functions
 
 
-class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting from QMainWindow (PyQt5 GUI)
-    def __init__(self):
-        super().__init__()
+import queue  # Used for thread-safe frame buffering
+import threading  # Handles video capture and processing in parallel
+import time
+import winsound
+import cv2
+import numpy as np
+from ultralytics import YOLO
+import mediapipe as mp
+import sys
+import tkinter as tk
+from tkinter import Label, Frame, Canvas
+from PIL import Image, ImageTk
+from thresholds import *  # Import thresholds for blink and yawn detection
+from gaze_head_detection import GazeHeadDetection  # Import gaze and head pose detection functions
+
+
+class DrowsinessDetector:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Driver Fatigue Detection")
+        self.root.geometry("900x600")
+        self.root.configure(bg="white")
 
         # Store current states
         self.yawn_state = ''
@@ -35,57 +54,49 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         self.current_blinks = 0
         self.current_yawns = 0
         self.time_window = 60  # 1 minute window
-        self.start_time = time.time()  # Track start time
+        self.start_time = time.time()
 
-        self.eyes_still_closed = False  # Track closed eye state
-        self.yawn_in_progress = False # Track yawning state
+        self.eyes_still_closed = False
+        self.yawn_in_progress = False
 
-        self.setWindowTitle("Driver Fatigue Detection")
-        self.setGeometry(100, 100, 900, 600)
-        self.setStyleSheet("background-color: white;")
+        # Layout setup
+        self.main_frame = Frame(self.root, bg="white")
+        self.main_frame.pack(pady=10)
 
-        self.central_widget = QWidget(self)
-        self.setCentralWidget(self.central_widget)
+        # Video Frame
+        self.video_canvas = Canvas(self.main_frame, width=640, height=480, bg="black")
+        self.video_canvas.grid(row=0, column=0, padx=10)
 
-        self.layout = QHBoxLayout(self.central_widget)
-
-        self.video_label = QLabel(self)
-        self.video_label.setStyleSheet("border: 2px solid black;")
-        self.video_label.setFixedSize(640, 480)
-        self.layout.addWidget(self.video_label)
-
-        self.info_label = QLabel()
-        self.info_label.setStyleSheet("background-color: white; border: 1px solid black; padding: 10px;")
-        self.layout.addWidget(self.info_label)
-
+        # Info Display
+        self.info_label = Label(self.main_frame, text="Initializing...", bg="white", fg="black", font=("Arial", 12), justify="left")
+        self.info_label.grid(row=0, column=1, padx=10, sticky="nw")
 
         # Load YOLO model
         self.detect_drowsiness = YOLO(r"D:\GRAD_PROJECT\driver_fatigue\models\best_ours.pt")
 
-        self.cap = cv2.VideoCapture(0) # Capture video from webcam
-        time.sleep(1.000)
-        
+        # Start Webcam Capture
+        self.cap = cv2.VideoCapture(0)  
+        time.sleep(1.0)
+
         # Initialize Gaze & Head Detection Module
         self.gaze_head_detector = GazeHeadDetection()
-        self.gaze_head_detector.start()  # Start gaze and head detection
-        self.update_info()
+        self.gaze_head_detector.start()
 
-        # Using Multi-Threading
-        '''
-        frame_queue → Stores frames for processing.
-        capture_thread → Captures frames.
-        process_thread → Processes frames.
-        '''
+        # Threading Setup
         self.frame_queue = queue.Queue(maxsize=2)
         self.stop_event = threading.Event()
 
         self.capture_thread = threading.Thread(target=self.capture_frames)
         self.process_thread = threading.Thread(target=self.process_frames)
-        self.blink_yawn_thread = threading.Thread(target=self.update_blink_yawn_rate)  # Thread for tracking blinks/yawns per minute
+        self.blink_yawn_thread = threading.Thread(target=self.update_blink_yawn_rate)
 
         self.capture_thread.start()
         self.process_thread.start()
-        self.blink_yawn_thread.start()  # Start the blink/yawn tracking thread
+        self.blink_yawn_thread.start()
+
+        # Start UI update loop
+        self.update_info()
+
         
 
     def fatigue_detection(self,frame,blink_rate,yawning_rate, gaze_status, head_status):
@@ -116,64 +127,52 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         # Generate alert messages if necessary
         self.alert_text = ""
         if round(self.microsleep_duration, 2) > microsleep_threshold:
-            self.alert_text += "<p style='color: red; font-weight: bold;'>⚠️ Alert: Prolonged Microsleep Detected!</p>"
+            self.alert_text += "⚠️ Alert: Prolonged Microsleep Detected!\n"
         if round(self.yawn_duration, 2) > yawning_threshold:
-            self.alert_text += "<p style='color: orange; font-weight: bold;'>⚠️ Alert: Prolonged Yawn Detected!</p>"
+            self.alert_text += "⚠️ Alert: Prolonged Yawn Detected!\n"
 
-        # **BASELINE NOT SET (SHOW CALIBRATION MESSAGE)**
+        # BASELINE NOT SET (SHOW CALIBRATION MESSAGE)
         if baseline_flag == 0:
             info_text = (
-                f"<div style='font-family: Arial, sans-serif; color: #333; padding: 10px; text-align: center;'>"
-                f"<h2 style='color: #4CAF50;'>🚗 Drowsiness Detector 🚗</h2>"
-                f"<hr style='border: 2px solid #4CAF50;'>"
-                f"<h3 style='color: #FF9800;'>⚙️ Setting Baseline... Please Keep Your Head Straight ⚙️</h3>"
-                f"<p style='color: #607D8B;'>We are calibrating normal head and gaze positions.</p>"
-                f"<p style='color: #607D8B;'>Stay still for a few seconds.</p>"
-                f"<hr style='border: 2px solid #4CAF50;'>"
-                f"</div>"
+                "🚗 Drowsiness Detector 🚗\n"
+                "=========================\n"
+                "⚙️ Setting Baseline... Please Keep Your Head Straight ⚙️\n"
+                "We are calibrating normal head and gaze positions.\n"
+                "Stay still for a few seconds.\n"
+                "=========================\n"
             )
-
-        # **BASELINE SET (SHOW NORMAL DETECTION INFO)**
+        # BASELINE SET (SHOW NORMAL DETECTION INFO)
         else:
             info_text = (
-                f"<div style='font-family: Arial, sans-serif; color: #333; padding: 10px;'>"
-                f"<h2 style='text-align: center; color: #4CAF50;'>🚗 Drowsiness Detector 🚗</h2>"
-                f"<hr style='border: 2px solid #4CAF50;'>"
-
-                # Alert Section
-                f"<p style='color: red; font-weight: bold; text-align: center;'>{self.alert_text}</p>"
-
-                # Blink & Yawn Statistics
-                f"<h3 style='color: #2196F3;'>🔍 Detection Stats</h3>"
-                f"<p><b>👀 Blinks:</b> <span style='color: #FF9800;'>{self.num_of_blinks}</span></p>"
-                f"<p><b>😴 Microsleeps:</b> <span style='color: #E91E63;'>{round(self.microsleep_duration,2)} seconds</span></p>"
-                f"<p><b>😮 Yawns:</b> <span style='color: #795548;'>{self.num_of_yawns}</span></p>"
-                f"<p><b>⏳ Yawning Duration:</b> <span style='color: #9C27B0;'>{round(self.yawn_duration,2)} seconds</span></p>"
-                f"<p><b>📊 Blinks per minute:</b> <span style='color: #009688;'>{self.blinks_per_minute} BPM</span></p>"
-                f"<p><b>📊 Yawns per minute:</b> <span style='color: #009688;'>{self.yawns_per_minute} YPM</span></p>"
-
-                f"<hr style='border: 2px solid #4CAF50;'>"
-
-                # Gaze and Head Movement Section
-                f"<h3 style='color: #2196F3;'>👁️ Gaze & Head Tracking</h3>"
-                f"<p><b>🟡 Gaze Status:</b> <span style='color: {'red' if gaze_status == 'ABNORMAL GAZE' else 'green'};'>{gaze_status}</span></p>"
-                f"<p><b>👀 Gaze Direction:</b> <span style='color: #673AB7;'>{gaze_direction}</span></p>"
-                f"<p><b>🔴 Head Movement Status:</b> <span style='color: {'red' if head_status == 'ABNORMAL' else 'green'};'>{head_status}</span></p>"
-                f"<p><b>📏 Pitch:</b> <span style='color: #607D8B;'>{pitch:.2f}</span></p>"
-                f"<p><b>📏 Yaw:</b> <span style='color: #607D8B;'>{yaw:.2f}</span></p>"
-                f"<p><b>📏 Roll:</b> <span style='color: #607D8B;'>{roll:.2f}</span></p>"
-
-                f"<hr style='border: 2px solid #4CAF50;'>"
-
-                # Distraction Counter
-                f"<h3 style='color: #3F51B5;'>⚠️ Distraction Monitoring</h3>"
-                f"<p><b>⚠️ Distraction Count:</b> <span style='color: #D32F2F; font-weight: bold;'>{distraction_counts}</span></p>"
-
-                f"</div>"
+                "🚗 Drowsiness Detector 🚗\n"
+                "=========================\n"
+                f"{self.alert_text}\n"
+                "🔍 Detection Stats:\n"
+                f"👀 Blinks: {self.num_of_blinks}\n"
+                f"😴 Microsleeps: {round(self.microsleep_duration,2)} sec\n"
+                f"😮 Yawns: {self.num_of_yawns}\n"
+                f"⏳ Yawning Duration: {round(self.yawn_duration,2)} sec\n"
+                f"📊 Blinks per min: {self.blinks_per_minute} BPM\n"
+                f"📊 Yawns per min: {self.yawns_per_minute} YPM\n"
+                "=========================\n"
+                "👁️ Gaze & Head Tracking\n"
+                f"🟡 Gaze Status: {'⚠️' if gaze_status == 'ABNORMAL GAZE' else '✅'} {gaze_status}\n"
+                f"👀 Gaze Direction: {gaze_direction}\n"
+                f"🔴 Head Status: {'⚠️' if head_status == 'ABNORMAL' else '✅'} {head_status}\n"
+                f"📏 Pitch: {pitch:.2f}\n"
+                f"📏 Yaw: {yaw:.2f}\n"
+                f"📏 Roll: {roll:.2f}\n"
+                "=========================\n"
+                "⚠️ Distraction Monitoring\n"
+                f"⚠️ Distraction Count: {distraction_counts}\n"
             )
 
-        # **Update the UI**
-        self.info_label.setText(info_text)
+        # Update the Tkinter Label with the generated text
+        self.info_label.config(text=info_text)
+
+        # Schedule the next update
+        self.root.after(500, self.update_info)  # Update every 500ms
+
 
 
     def predict(self, frame):
@@ -267,13 +266,12 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
                 self.stop_event.set()
 
     def display_frame(self, frame):
-        """Displays the processed frame in the PyQt5 GUI."""
         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_image.shape
-        bytes_per_line = ch * w
-        convert_to_Qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-        p = convert_to_Qt_format.scaled(640, 480, Qt.KeepAspectRatio)
-        self.video_label.setPixmap(QPixmap.fromImage(p))
+        img = Image.fromarray(rgb_image)
+        img = img.resize((640, 480))
+        imgtk = ImageTk.PhotoImage(image=img)
+        self.video_canvas.create_image(0, 0, anchor=tk.NW, image=imgtk)
+        self.video_canvas.image = imgtk  # Keep reference
 
     def update_blink_yawn_rate(self):
         """Updates blink and yawn rates every minute."""
@@ -313,7 +311,8 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         self.gaze_head_detector.stop()
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = DrowsinessDetector()
-    window.show()
-    sys.exit(app.exec_())
+    import tkinter as tk
+
+    root = tk.Tk()
+    app = DrowsinessDetector(root)  # Pass Tkinter root window to your class
+    root.mainloop()  # Start Tkinter main event loop
