@@ -10,6 +10,11 @@ from PIL import Image, ImageTk
 from yawnBlink_farah import DrowsinessDetector
 import yawnBlink_farah as yb  # Import the script to access its global variables
 from thresholds import *
+import importlib
+import yawnBlink_farah as yb
+
+importlib.reload(yb)  # ✅ This forces Python to reload the latest changes
+
 
 
 
@@ -600,13 +605,12 @@ def update_info():
 
 
     #-----display wayn and blink-------#
-    yaw_label.config(text=f"Yaw: {yaw_gui:.2f} deg", fg="black")
     blinks_label.config(text=f"num of blinks: {yb.num_of_blinks_gui}", fg="black")
-    microsleep_label.config(text=f"microsleep duration: {yb.microsleep_duration_gui} sec", fg="black")
-    yaw_label.config(text=f"num of yawns: {yb.num_of_yawns_gui}", fg="black")
-    yawn_duration_label.config(text=f"yawn duration: {yb.yawn_duration_gui} sec", fg="black")
-    blinks_per_minute_label.config(text=f"blinks/min: {yb.blinks_per_minute_gui} sec", fg="black")
-    yawns_per_minute_label.config(text=f"yawns/min: {yb.yawns_per_minute_gui} sec", fg="black")
+    microsleep_label.config(text=f"microsleep duration: {yb.microsleep_duration_gui:.2f} sec", fg="black")
+    yawns_label.config(text=f"num of yawns: {yb.num_of_yawns_gui}", fg="black")
+    yawn_duration_label.config(text=f"yawn duration: {yb.yawn_duration_gui:.2f} sec", fg="black")
+    blinks_per_minute_label.config(text=f"blinks/min: {yb.blinks_per_minute_gui} ", fg="black")
+    yawns_per_minute_label.config(text=f"yawns/min: {yb.yawns_per_minute_gui} ", fg="black")
 
 
     # ----- Handle Fatigue Warnings (Display in Same Alert Area) ----- #
@@ -657,7 +661,9 @@ def update_video():
 
     # Process the frame in both classes
     detector.process_frame(frame)  # Gaze and head tracking
-    drowsiness_detector.predict(frame)  # Drowsiness detection
+    #drowsiness_detector.predict(frame)  # Drowsiness detection
+    drowsiness_detector.process_frames(frame)  # Pass the frame to DrowsinessDetector
+
 
     # Convert frame for GUI display
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
