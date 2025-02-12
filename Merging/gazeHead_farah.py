@@ -4,6 +4,7 @@ import numpy as np  # NumPy for mathematical calculations
 import time  # Time module for timers
 import platform
 from threading import Thread
+from thresholds import * 
 
 import tkinter as tk
 from PIL import Image, ImageTk
@@ -163,14 +164,14 @@ class GazeAndHeadDetection:
     ROLL_THRESHOLD = 10  # Maximum allowed deviation in roll angle (degrees)
     EAR_THRESHOLD = 0.35  # Eye Aspect Ratio (EAR) threshold below which gaze is considered downward
     NO_BLINK_GAZE_DURATION = 20  # Time (seconds) for which continuous center gaze without blinking is abnormal
+    DISTRACTION_THRESHOLD = 4  # Number of distractions before issuing a warning    
 
-    # Buzzer control for alerts
-    
+        
     no_blink_start_time = None  # Tracks time since last detected blink
 
     # Distraction tracking variables
     start_time_counter = time.time()  # Start time for tracking distractions
-    DISTRACTION_THRESHOLD = 4  # Number of distractions before issuing a warning
+    
 
     # Flag to ensure each abnormal gaze is counted only once
     #gaze_flag = False

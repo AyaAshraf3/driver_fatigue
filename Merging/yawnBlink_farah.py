@@ -16,10 +16,6 @@ yawn_duration_gui = 0
 blinks_per_minute_gui = 0
 yawns_per_minute_gui = 0
 
-# Flags for alerts on GUI
-possibly_fatigued_alert = 0
-highly_fatigued_alert = 0
-possible_fatigue_alert = 0
 
 
 class DrowsinessDetector(): 
@@ -173,12 +169,12 @@ class DrowsinessDetector():
         blink_rate = blinks_per_minute_gui
         yawning_rate = yawns_per_minute_gui
 
-        if microsleep_duration > microsleep_threshold:
-            possible_fatigue_alert = 1
-        if blink_rate > 35 or yawning_rate > 5:
-            highly_fatigued_alert = 1
-        elif blink_rate > 25 or yawning_rate > 3:
-            possibly_fatigued_alert = 1
+        #if microsleep_duration > microsleep_threshold:
+         #   possible_fatigue_alert = 1
+        #if blink_rate > 35 or yawning_rate > 5:
+         #   highly_fatigued_alert = 1
+        #elif blink_rate > 25 or yawning_rate > 3:
+         #   possibly_fatigued_alert = 1
 
     def play_alert_sound(self):
         """Plays an alert sound for fatigue detection."""
