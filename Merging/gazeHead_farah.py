@@ -4,7 +4,6 @@ import numpy as np  # NumPy for mathematical calculations
 import time  # Time module for timers
 import platform
 from threading import Thread
-from thresholds import * 
 
 import tkinter as tk
 from PIL import Image, ImageTk
@@ -34,6 +33,7 @@ temp_g = 0
 distraction_counter = 0
 gaze_flag=False
 buzzer_running = False
+
 
 
 
@@ -163,15 +163,15 @@ class GazeAndHeadDetection:
     YAW_THRESHOLD = 10  # Maximum allowed deviation in yaw angle (degrees)
     ROLL_THRESHOLD = 10  # Maximum allowed deviation in roll angle (degrees)
     EAR_THRESHOLD = 0.35  # Eye Aspect Ratio (EAR) threshold below which gaze is considered downward
-    NO_BLINK_GAZE_DURATION = 20  # Time (seconds) for which continuous center gaze without blinking is abnormal
-    DISTRACTION_THRESHOLD = 4  # Number of distractions before issuing a warning    
+    NO_BLINK_GAZE_DURATION_INTIAL = 10  # Time (seconds) for which continuous center gaze without blinking is abnormal
 
-        
+    # Buzzer control for alerts
+    
     no_blink_start_time = None  # Tracks time since last detected blink
 
     # Distraction tracking variables
     start_time_counter = time.time()  # Start time for tracking distractions
-    
+    DISTRACTION_THRESHOLD = 4  # Number of distractions before issuing a warning
 
     # Flag to ensure each abnormal gaze is counted only once
     #gaze_flag = False
@@ -198,7 +198,7 @@ class GazeAndHeadDetection:
         global distraction_flag_head, distraction_flag_gaze, temp, temp_g, distraction_counter
         global gaze_flag
 
-        print("dakhal el process frame")
+        #print("dakhal el process frame")
         GazeAndHeadDetection.frame = frame
         # Calculate elapsed time for distraction tracking
         elapsed_time_counter = time.time() - GazeAndHeadDetection.start_time_counter
@@ -307,8 +307,10 @@ class GazeAndHeadDetection:
             # ✅ Step 1: Detect Gaze Direction
             if left_iris_position_x < -0.1:
                 gaze = "Right"
+        
             elif left_iris_position_x > 0.1:
                 gaze = "Left"
+            
             else:
                 gaze = self.process_blink_and_gaze("Center", self.compute_ear(face_landmarks.landmark, left_eye_indices), left_iris_position_y)
 
@@ -320,6 +322,7 @@ class GazeAndHeadDetection:
                     GazeAndHeadDetection.gaze_start_time = time.time()
                 elif time.time() - GazeAndHeadDetection.gaze_start_time > GazeAndHeadDetection.gaze_abnormal_duration and not GazeAndHeadDetection.gaze_alert_triggered:
                     GazeAndHeadDetection.gaze_alert_triggered = True
+
                     if not gaze_flag:
                         distraction_counter += 1
                         gaze_flag = True
@@ -334,9 +337,11 @@ class GazeAndHeadDetection:
             if GazeAndHeadDetection.gaze_alert_triggered:
                 gaze_status_gui = "ABNORMAL GAZE"
                 distraction_flag_gaze = 1
+                   
             else:
                 gaze_status_gui = "NORMAL"
                 distraction_flag_gaze = 0
+                
 
             # -------------------------------------------- Distraction Handling --------------------------------------------
             # ✅ If distraction threshold is reached, trigger HIGH RISK alert
@@ -407,30 +412,30 @@ class GazeAndHeadDetection:
 
     def process_blink_and_gaze(self, gaze, left_ear, left_iris_position_y):
         """Detect abnormal prolonged center gaze without blinking."""
-        global no_blink_start_time, gaze_alert_triggered
+        global no_blink_start_time, gaze_alert_triggered 
 
         if gaze == "Center":
             if GazeAndHeadDetection.no_blink_start_time is None:
                 GazeAndHeadDetection.no_blink_start_time = time.time()
             else:
                 elapsed_time = time.time() - GazeAndHeadDetection.no_blink_start_time
-                if elapsed_time >= GazeAndHeadDetection.NO_BLINK_GAZE_DURATION:
-                    if not GazeAndHeadDetection.gaze_alert_triggered:
-                        GazeAndHeadDetection.gaze_alert_triggered = True  # Consider prolonged center gaze without blinking as abnormal
-                        gaze = "Center Gazed"  # Set gaze to "Center Gazed" to trigger alert
+                if elapsed_time >= GazeAndHeadDetection.NO_BLINK_GAZE_DURATION_INTIAL:
+                    gaze = "Center Gazed"  # Set gaze to "Center Gazed" to trigger alert
+                       
+
         else:
             GazeAndHeadDetection.no_blink_start_time = None  # Reset timer if gaze changes
 
         if left_iris_position_y < -0.3 and left_ear < GazeAndHeadDetection.EAR_THRESHOLD:
             GazeAndHeadDetection.no_blink_start_time = None  # Reset blink timer if blink is detected
-            GazeAndHeadDetection.gaze_alert_triggered = False  # Reset abnormal gaze trigger if blinking occurs
             gaze = "Down"
+            
         return gaze
 
     def calculate_angles(self, landmarks, frame_width, frame_height):
         """Calculate pitch, yaw, and roll angles from facial landmarks."""
         # Select key points for calculating angles
-        print(" dakhal calcultae angle ")
+        #print(" dakhal calcultae angle ")
         nose_tip = landmarks[1]  # Nose tip landmark
         chin = landmarks[152]  # Chin landmark
         left_eye_outer = landmarks[33]  # Outer corner of the left eye
@@ -533,7 +538,7 @@ def update_info():
     Updates the GUI labels based on the distraction status (head and gaze).
     Runs continuously every 500ms to refresh the displayed information.
     """
-    global flag_gui, distraction_flag_gaze, distraction_flag_head, temp, temp_g
+    global flag_gui, distraction_flag_gaze, distraction_flag_head, temp, temp_g 
 
     # Define colors
     dark_orange = "#FF8C00"  # Warning color
@@ -617,9 +622,13 @@ def update_info():
     # ----- Handle Fatigue Warnings (Display in Same Alert Area) ----- #
     fatigue_alert_text = ""
     fatigue_alert_color = "black"
-
+    
     if round(yb.microsleep_duration_gui, 2) > microsleep_threshold:
         fatigue_alert_text = "⚠️Alert: Prolonged Microsleep Detected!"
+        fatigue_alert_color = "red"
+
+    elif gaze_gui == "Down" and gaze_status_gui == "ABNORMAL GAZE" and head_status_gui == "ABNORMAL PITCH":
+        fatigue_alert_text = "⚠️Alert! Driver is fainted :("
         fatigue_alert_color = "red"
 
     elif round(yb.yawn_duration_gui, 2) > yawning_threshold:
@@ -636,7 +645,7 @@ def update_info():
 
     elif yb.blinks_per_minute_gui > 25 or yb.yawns_per_minute_gui > 3:
         fatigue_alert_text = "⚠️ Alert! Driver is Possibly Fatigued!"
-        fatigue_alert_color = dark_orange
+        fatigue_alert_color = "orange"
 
     # Update alert area with fatigue warnings
     alert_label.config(text=fatigue_alert_text, fg=fatigue_alert_color if fatigue_alert_text else "black")
