@@ -79,7 +79,7 @@ class DriverMonitorApp:
         distraction_frame = tk.Frame(text_frame)
         distraction_frame.grid(row=2, column=0, sticky="w")
 
-        self.distraction_label = tk.Label(distraction_frame, text="Num of Distraction/3 min:", font=("Arial", 11))
+        self.distraction_label = tk.Label(distraction_frame, text="Num of Distraction / 3 min:", font=("Arial", 11))
         self.distraction_label.pack(anchor="w")
 
         self.distraction_flag_label = tk.Label(distraction_frame, text="", font=("Arial", 11, "bold"))
@@ -187,27 +187,6 @@ class DriverMonitorApp:
         Updates the GUI labels based on the distraction status (head and gaze).
         Runs continuously every 500ms to refresh the displayed information.
         """
-        #global pitch_gui 
-        # global yaw_gui 
-        # global roll_gui 
-        # global gaze_gui 
-        # global gaze_status_gui 
-        # global head_status_gui 
-        # global flag_gui
-        # global distraction_flag_head 
-        # global distraction_flag_gaze 
-        # global temp 
-        # global temp_g 
-        # global distraction_counter 
-        # global gaze_flag
-        # global buzzer_running 
-
-        # global num_of_blinks_gui 
-        # global microsleep_duration_gui 
-        # global num_of_yawns_gui 
-        # global yawn_duration_gui 
-        # global blinks_per_minute_gui 
-        # global yawns_per_minute_gui
 
         up_pitch_gui= gh.pitch_gui 
         up_yaw_gui = gh.yaw_gui 
