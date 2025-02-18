@@ -42,7 +42,10 @@ class DrowsinessDetector():
         self.start_time = time.time()  # Track start time
 
         self.eyes_still_closed = False  # Track closed-eye state
-        self.yawn_in_progress = False  # Track yawning state
+      
+        # Initialize yawn-related tracking variables
+        self.yawn_finished = False  # ✅ Add this to prevent AttributeError
+        self.yawn_in_progress = False  # ✅ Track if yawning is ongoing
 
         # ✅ Store the latest frame globally within the class
         self.current_frame = None  
