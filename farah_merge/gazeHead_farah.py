@@ -7,6 +7,15 @@ from threading import Thread
 
 import tkinter as tk
 from PIL import Image, ImageTk
+from yawnBlink_farah import DrowsinessDetector
+import yawnBlink_farah as yb  # Import the script to access its global variables
+from thresholds import *
+import importlib
+
+importlib.reload(yb)  # ✅ This forces Python to reload the latest changes
+
+
+
 
 # Global variables for GUI updates
 pitch_gui = 0.0
@@ -26,78 +35,6 @@ buzzer_running = False
 
 
 
-# Create the main GUI window
-root = tk.Tk()
-root.title("Webcam GUI")
-root.geometry("980x600")  # Adjust window size as needed
-
-# ========================= TITLE SECTION ========================= #
-title_label = tk.Label(
-    root, text="GAZE AND HEAD DETECTION",
-    font=("Courier New", 24, "bold"), fg="blue"
-)
-title_label.pack(pady=10)  # Add padding below the title
-
-# ========================= MAIN CONTAINER ========================= #
-frame_container = tk.Frame(root)
-frame_container.pack(fill="both", expand=True, padx=10, pady=10)
-
-# ========================= VIDEO FEED SECTION (LEFT SIDE) ========================= #
-video_label = tk.Label(frame_container)
-video_label.grid(row=0, column=0, rowspan=10, padx=10, pady=10)  # Video feed label
-
-# ========================= TEXT OUTPUT SECTION (RIGHT SIDE) ========================= #
-text_frame = tk.Frame(frame_container)
-text_frame.grid(row=0, column=1, padx=30, pady=30, sticky="nw")
-
-# ========================= GAZE DETECTION SECTION ========================= #
-gaze_frame = tk.Frame(text_frame)
-gaze_frame.grid(row=0, column=0, sticky="w")
-
-gaze_label = tk.Label(gaze_frame, text="GAZE DETECTION", font=("Arial", 18, "bold"))
-gaze_label.pack(anchor="w")
-
-gaze_center_label = tk.Label(gaze_frame, text="Center: ", font=("Arial", 14))
-gaze_center_label.pack(anchor="w")
-
-gaze_status_label = tk.Label(gaze_frame, text="Status: ", font=("Arial", 14))
-gaze_status_label.pack(anchor="w")
-
-# ========================= HEAD DETECTION SECTION ========================= #
-head_frame = tk.Frame(text_frame)
-head_frame.grid(row=1, column=0, sticky="w", pady=(10, 0))
-
-head_label = tk.Label(head_frame, text="HEAD DETECTION", font=("Arial", 18, "bold"))
-head_label.pack(anchor="w")
-
-pitch_label = tk.Label(head_frame, text="Pitch: ", font=("Arial", 14))
-pitch_label.pack(anchor="w")
-
-yaw_label = tk.Label(head_frame, text="Yaw: ", font=("Arial", 14))
-yaw_label.pack(anchor="w")
-
-roll_label = tk.Label(head_frame, text="Roll: ", font=("Arial", 14))
-roll_label.pack(anchor="w")
-
-head_status_label = tk.Label(head_frame, text="Status: ", font=("Arial", 14))
-head_status_label.pack(anchor="w")
-
-# ========================= DISTRACTION SECTION ========================= #
-distraction_frame = tk.Frame(text_frame)
-distraction_frame.grid(row=2, column=0, sticky="w", pady=10)
-
-separator1 = tk.Label(distraction_frame, text="--------------------------------------------------", font=("Arial", 14))
-separator1.pack(anchor="w", pady=5)  # Separator
-
-distraction_label = tk.Label(distraction_frame, text="Distraction counts within 3 min:", font=("Arial", 14))
-distraction_label.pack(anchor="w")
-
-separator2 = tk.Label(distraction_frame, text="--------------------------------------------------", font=("Arial", 14))
-separator2.pack(anchor="w", pady=5)  # Separator
-
-distraction_flag_label = tk.Label(distraction_frame, text="", font=("Arial", 18, "bold"))
-distraction_flag_label.pack(anchor="w")
-
 
 
 class GazeAndHeadDetection:
@@ -105,7 +42,7 @@ class GazeAndHeadDetection:
 
     # Timers and state variables for baseline establishment
     start_time = time.time()  # Start time for collecting baseline head movement data
-    threshold_time = 10  # Time in seconds to collect baseline data
+    threshold_time = 20  # Time in seconds to collect baseline data
     baseline_pitch, baseline_yaw, baseline_roll = 0, 0, 0  # Stores the average baseline angles
     baseline_data = []  # List to accumulate head movement angles during baseline collection
     baseline_set = False  # Flag to check if baseline has been established
@@ -124,7 +61,7 @@ class GazeAndHeadDetection:
     YAW_THRESHOLD = 10  # Maximum allowed deviation in yaw angle (degrees)
     ROLL_THRESHOLD = 10  # Maximum allowed deviation in roll angle (degrees)
     EAR_THRESHOLD = 0.35  # Eye Aspect Ratio (EAR) threshold below which gaze is considered downward
-    NO_BLINK_GAZE_DURATION = 20  # Time (seconds) for which continuous center gaze without blinking is abnormal
+    NO_BLINK_GAZE_DURATION_INTIAL = 10  # Time (seconds) for which continuous center gaze without blinking is abnormal
 
     # Buzzer control for alerts
     
@@ -159,7 +96,7 @@ class GazeAndHeadDetection:
         global distraction_flag_head, distraction_flag_gaze, temp, temp_g, distraction_counter
         global gaze_flag
 
-        print("dakhal el process frame")
+        #print("dakhal el process frame")
         GazeAndHeadDetection.frame = frame
         # Calculate elapsed time for distraction tracking
         elapsed_time_counter = time.time() - GazeAndHeadDetection.start_time_counter
@@ -268,8 +205,10 @@ class GazeAndHeadDetection:
             # ✅ Step 1: Detect Gaze Direction
             if left_iris_position_x < -0.1:
                 gaze = "Right"
+        
             elif left_iris_position_x > 0.1:
                 gaze = "Left"
+            
             else:
                 gaze = self.process_blink_and_gaze("Center", self.compute_ear(face_landmarks.landmark, left_eye_indices), left_iris_position_y)
 
@@ -281,6 +220,7 @@ class GazeAndHeadDetection:
                     GazeAndHeadDetection.gaze_start_time = time.time()
                 elif time.time() - GazeAndHeadDetection.gaze_start_time > GazeAndHeadDetection.gaze_abnormal_duration and not GazeAndHeadDetection.gaze_alert_triggered:
                     GazeAndHeadDetection.gaze_alert_triggered = True
+
                     if not gaze_flag:
                         distraction_counter += 1
                         gaze_flag = True
@@ -295,9 +235,11 @@ class GazeAndHeadDetection:
             if GazeAndHeadDetection.gaze_alert_triggered:
                 gaze_status_gui = "ABNORMAL GAZE"
                 distraction_flag_gaze = 1
+                   
             else:
                 gaze_status_gui = "NORMAL"
                 distraction_flag_gaze = 0
+                
 
             # -------------------------------------------- Distraction Handling --------------------------------------------
             # ✅ If distraction threshold is reached, trigger HIGH RISK alert
@@ -309,10 +251,14 @@ class GazeAndHeadDetection:
 
                 # Activate buzzer alert
                 self.buzzer_alert()
+                  
 
-                # Stop buzzer after 5 sec and reset distractions
-                root.after(5000, self.stop_buzzer)
-                root.after(9000, self.reset_distraction_flag)
+                # Function to stop the buzzer after 5 seconds
+                Thread(target=lambda: (time.sleep(4), self.stop_buzzer())).start()
+
+                # Function to reset distraction flag after 9 seconds
+                Thread(target=lambda: (time.sleep(7), self.reset_distraction_flag())).start()
+
 
             elif elapsed_time_counter >= 180:  # Reset counter every 3 minutes
                 print("⏳ 3 minutes passed. Resetting counter.")
@@ -320,7 +266,7 @@ class GazeAndHeadDetection:
                 GazeAndHeadDetection.start_time_counter = time.time()
 
         # ✅ Display the processed frame
-        cv2.imshow("Head Movement and Gaze Detection", frame)
+        #cv2.imshow("Head Movement and Gaze Detection", frame)
 
         # Exit loop on key press
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -368,30 +314,30 @@ class GazeAndHeadDetection:
 
     def process_blink_and_gaze(self, gaze, left_ear, left_iris_position_y):
         """Detect abnormal prolonged center gaze without blinking."""
-        global no_blink_start_time, gaze_alert_triggered
+        global no_blink_start_time, gaze_alert_triggered 
 
         if gaze == "Center":
             if GazeAndHeadDetection.no_blink_start_time is None:
                 GazeAndHeadDetection.no_blink_start_time = time.time()
             else:
                 elapsed_time = time.time() - GazeAndHeadDetection.no_blink_start_time
-                if elapsed_time >= GazeAndHeadDetection.NO_BLINK_GAZE_DURATION:
-                    if not GazeAndHeadDetection.gaze_alert_triggered:
-                        GazeAndHeadDetection.gaze_alert_triggered = True  # Consider prolonged center gaze without blinking as abnormal
-                        gaze = "Center Gazed"  # Set gaze to "Center Gazed" to trigger alert
+                if elapsed_time >= GazeAndHeadDetection.NO_BLINK_GAZE_DURATION_INTIAL:
+                    gaze = "Center Gazed"  # Set gaze to "Center Gazed" to trigger alert
+                       
+
         else:
             GazeAndHeadDetection.no_blink_start_time = None  # Reset timer if gaze changes
 
         if left_iris_position_y < -0.3 and left_ear < GazeAndHeadDetection.EAR_THRESHOLD:
             GazeAndHeadDetection.no_blink_start_time = None  # Reset blink timer if blink is detected
-            GazeAndHeadDetection.gaze_alert_triggered = False  # Reset abnormal gaze trigger if blinking occurs
             gaze = "Down"
+            
         return gaze
 
     def calculate_angles(self, landmarks, frame_width, frame_height):
         """Calculate pitch, yaw, and roll angles from facial landmarks."""
         # Select key points for calculating angles
-        print(" dakhal calcultae angle ")
+        #print(" dakhal calcultae angle ")
         nose_tip = landmarks[1]  # Nose tip landmark
         chin = landmarks[152]  # Chin landmark
         left_eye_outer = landmarks[33]  # Outer corner of the left eye
@@ -460,7 +406,8 @@ class GazeAndHeadDetection:
         start_time_counter = time.time()  
 
         # Run action_after_buzzer() after 1 second
-        root.after(1000 , self.action_after_buzzer)
+        # Run `action_after_buzzer` after 1 second without blocking the GUI
+        Thread(target=lambda: (time.sleep(1), self.action_after_buzzer())).start()
 
     def buzzer_alert(self):
         global buzzer_running
@@ -486,128 +433,3 @@ class GazeAndHeadDetection:
 
 
 
-
-
-
-def update_info():
-    """
-    Updates the GUI labels based on the distraction status (head and gaze).
-    Runs continuously every 500ms to refresh the displayed information.
-    """
-    global flag_gui, distraction_flag_gaze, distraction_flag_head, temp, temp_g
-
-    # Define colors
-    dark_orange = "#FF8C00"  # Warning color
-    grey = "#808080"  # Default color for baseline setting
-    warning_text = ""  # Initialize empty warning message
-    warning_color = "black"  # Default text color
-
-    ### 📌 Baseline Setup (Before Detection Starts) ###
-    if flag_gui == 0:
-        # Display "Setting Baseline..." for all metrics
-        pitch_gui_t = yaw_gui_t = roll_gui_t = gaze_gui_t = "setting baseline.."
-        gaze_status_gui_t = head_status_gui_t = "setting baseline.."
-
-        # Update GUI labels
-        gaze_center_label.config(text=f"Position: {gaze_gui_t}", fg=grey)
-        gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui_t}", fg=grey)
-        pitch_label.config(text=f"Pitch: {pitch_gui_t} deg", fg=grey)
-        yaw_label.config(text=f"Yaw: {yaw_gui_t} deg", fg=grey)
-        roll_label.config(text=f"Roll: {roll_gui_t} deg", fg=grey)
-        head_status_label.config(text=f"Head Status: {head_status_gui_t}", fg=grey)
-
-    ### 📌 Detection & Warnings (Active Monitoring) ###
-    elif flag_gui == 1:
-        # Update gaze position
-        gaze_center_label.config(text=f"Position: {gaze_gui}", fg="black")
-
-        # Display gaze status (Normal / Abnormal)
-        if gaze_status_gui == "NORMAL":
-            gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui} ✅", fg="green")  # Normal gaze
-        else:
-            gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui} 🚨", fg="red")  # Abnormal gaze
-
-        # Update head movement values
-        pitch_label.config(text=f"Pitch: {pitch_gui:.2f} deg", fg="black")
-        yaw_label.config(text=f"Yaw: {yaw_gui:.2f} deg", fg="black")
-        roll_label.config(text=f"Roll: {roll_gui:.2f} deg", fg="black")
-
-        # Display head status (Normal / Abnormal)
-        if head_status_gui == "NORMAL":
-            head_status_label.config(text=f"Head Status: {head_status_gui} ✅", fg="green")
-        else:
-            head_status_label.config(text=f"Head Status: {head_status_gui} 🚨", fg="red")
-
-        # Update distraction counter
-        distraction_label.config(text=f"Distraction Count within 3 min: {distraction_counter}", fg="black")
-
-        ### 📌 Checking Distraction Warnings ###
-
-        # 🛑 Gaze Warnings
-        if distraction_flag_gaze == 2 and temp_g == 1:  # High risk due to gaze
-            warning_text += "🚨 HIGH RISK 🚨"
-            warning_color = "red"
-        elif distraction_flag_gaze == 1 and temp_g == 0:  # Moderate distraction due to gaze
-            warning_text += "⚠️ WARNING: Driver Distracted!"
-            warning_color = dark_orange
-
-        # 🛑 Head Movement Warnings
-        if distraction_flag_head == 2 and temp == 1:  # High risk due to head movement
-            warning_text += "🚨 HIGH RISK 🚨"
-            warning_color = "red"
-        elif distraction_flag_head == 1 and temp == 0:  # Moderate distraction due to head movement
-            warning_text += "⚠️ WARNING: Driver Distracted!"
-            warning_color = dark_orange
-
-        ### 📌 Updating the Warning Label ###
-        if warning_text == "":
-            distraction_flag_label.config(text="")  # No warning
-        else:
-            distraction_flag_label.config(text=warning_text.strip(), fg=warning_color)  # Display warning message
-
-    # 🔄 Schedule the function to run again in 500ms
-    root.after(500, update_info)
-
-
-
-
-# Initialize the GazeAndHeadDetection class
-detector = GazeAndHeadDetection()
-def update_video():
-    ret, frame = cap.read()
-
-    if not ret:
-        print("❌ Error: Could not read frame from webcam!")
-        cap.release()
-        cv2.destroyAllWindows()
-        return  # Exit function if no frame is captured
-
-    detector.process_frame(frame)  # ✅ Now correctly calls the instance method
-
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    img = Image.fromarray(frame_rgb)
-    imgtk = ImageTk.PhotoImage(image=img)
-    video_label.imgtk = imgtk
-    video_label.configure(image=imgtk)
-
-    video_label.after(30, update_video)  # ✅ Prevent excessive function calls
-
-
-
-# Main function to capture frames and process them
-def main():
-    global cap
-    cap = cv2.VideoCapture(0)  # Open webcam
-
-    # Start the GUI update thread
-    Thread(target=update_info, daemon=True).start()
-
-    # ✅ Start processing video frames
-    update_video()
-
-    # ✅ Run GUI
-    root.mainloop()
-
-# Run the main function
-if __name__ == "__main__":
-    main()

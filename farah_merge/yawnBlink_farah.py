@@ -42,13 +42,16 @@ class DrowsinessDetector():
         self.start_time = time.time()  # Track start time
 
         self.eyes_still_closed = False  # Track closed-eye state
-        self.yawn_in_progress = False  # Track yawning state
+      
+        # Initialize yawn-related tracking variables
+        self.yawn_finished = False  # ✅ Add this to prevent AttributeError
+        self.yawn_in_progress = False  # ✅ Track if yawning is ongoing
 
         # ✅ Store the latest frame globally within the class
         self.current_frame = None  
 
         # Load YOLO model
-        self.detect_drowsiness = YOLO(r"D:\grad project\driver_fatigue\models\best_ours2.pt")
+        self.detect_drowsiness = YOLO(r"D:\GRAD_PROJECT\driver_fatigue\trained_weights\best_ours2.pt")
 
         # Using Multi-Threading (Only for tracking blink/yawn rates)
         self.stop_event = threading.Event()
