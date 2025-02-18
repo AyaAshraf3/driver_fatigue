@@ -17,8 +17,6 @@ importlib.reload(gh)  # ✅ This forces Python to reload the latest changes
 
 
 
-
-
 class DriverMonitorApp:
     def __init__(self, root):
         self.root = root
@@ -116,7 +114,7 @@ class DriverMonitorApp:
         self.alert_label = tk.Label(yb_frame, text="", font=("Arial", 11, "bold"), fg="red")
         self.alert_label.pack(anchor="w")
         # Initialize the video capture
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(1)
 
         if not self.cap.isOpened():
             print("⚠️ Error: Could not open the camera!")

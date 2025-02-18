@@ -7,6 +7,7 @@ import numpy as np
 from ultralytics import YOLO
 import sys
 from thresholds import *  # Import thresholds for blink and yawn detection
+import time
 
 # Global Variables for GUI
 num_of_blinks_gui = 0
@@ -51,8 +52,9 @@ class DrowsinessDetector():
         self.current_frame = None  
 
         # Load YOLO model
-        self.detect_drowsiness = YOLO(r"D:\GRAD_PROJECT\driver_fatigue\trained_weights\best_ours2.pt")
-
+        self.detect_drowsiness = YOLO(r"trained_weights\best_ours2.pt")
+        self.detect_drowsiness.to('cuda')  # Use GPU for inference
+        
         # Using Multi-Threading (Only for tracking blink/yawn rates)
         self.stop_event = threading.Event()
         self.blink_yawn_thread = threading.Thread(target=self.update_blink_yawn_rate)
@@ -106,10 +108,11 @@ class DrowsinessDetector():
             if self.eyes_state == "Closed Eye":
                 if not self.eyes_still_closed:
                     self.eyes_still_closed = True
+                    self.start = time.perf_counter()
                     self.num_of_blinks += 1
                     num_of_blinks_gui = self.num_of_blinks  # ✅ Update global variable
                     self.current_blinks += 1  # ✅ Accumulate correctly
-                self.microsleep_duration += 45 / 1000
+                self.microsleep_duration = time.perf_counter() - self.start
                 microsleep_duration_gui = self.microsleep_duration
             else:
                 self.eyes_still_closed = False
@@ -119,10 +122,10 @@ class DrowsinessDetector():
             # ✅ Handle Yawn Detection (Fixed Logic)
             if self.eyes_state == "Yawning":
                 if not self.yawn_in_progress:  # ✅ Detect new yawn
+                    self.start = time.perf_counter()  # ✅ Start tracking yawn
                     self.yawn_in_progress = True  # ✅ Start tracking yawn
                     self.yawn_duration = 0  # ✅ Reset duration
-
-                self.yawn_duration += 45 / 1000  # ✅ Accumulate yawn duration
+                self.yawn_duration = time.perf_counter - self.start  # ✅ Accumulate yawn duration
                 yawn_duration_gui = self.yawn_duration  # ✅ Update GUI
 
                 if yawn_duration_gui > yawning_threshold and not self.yawn_finished:
