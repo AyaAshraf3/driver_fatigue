@@ -125,7 +125,7 @@ class DrowsinessDetector():
                     self.start = time.perf_counter()  # ✅ Start tracking yawn
                     self.yawn_in_progress = True  # ✅ Start tracking yawn
                     self.yawn_duration = 0  # ✅ Reset duration
-                self.yawn_duration = time.perf_counter - self.start  # ✅ Accumulate yawn duration
+                self.yawn_duration = time.perf_counter() - self.start  # ✅ Accumulate yawn duration
                 yawn_duration_gui = self.yawn_duration  # ✅ Update GUI
 
                 if yawn_duration_gui > yawning_threshold and not self.yawn_finished:
