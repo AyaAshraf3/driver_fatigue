@@ -48,7 +48,7 @@ class DrowsinessDetector():
         self.current_frame = None  
 
         # Load YOLO model
-        self.detect_drowsiness = YOLO(r"D:\GRAD_PROJECT\driver_fatigue\models\best_ours2.pt")
+        self.detect_drowsiness = YOLO(r"D:\grad project\driver_fatigue\models\best_ours2.pt")
 
         # Using Multi-Threading (Only for tracking blink/yawn rates)
         self.stop_event = threading.Event()

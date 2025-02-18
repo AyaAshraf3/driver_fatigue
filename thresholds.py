@@ -14,5 +14,5 @@ PITCH_THRESHOLD = 10         # Angle in degrees for abnormal pitch
 YAW_THRESHOLD = 10           # Angle in degrees for abnormal yaw
 ROLL_THRESHOLD = 10          # Angle in degrees for abnormal roll
 EAR_THRESHOLD = 0.35         # EAR threshold which below it considered looking down
-NO_BLINK_GAZE_DURATION = 5  # Time (seconds) for center gaze without blinking to be considered abnormal
+NO_BLINK_GAZE_DURATION = 20  # Time (seconds) for center gaze without blinking to be considered abnormal
 DISTRACTION_THRESHOLD=4

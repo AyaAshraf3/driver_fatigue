@@ -12,11 +12,17 @@ from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtCore import Qt
 from thresholds import *  # Import thresholds for blink and yawn detection
 from gaze_head_detection import GazeHeadDetection  # Import gaze and head pose detection functions
+import torch
 
 
 class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting from QMainWindow (PyQt5 GUI)
     def __init__(self):
         super().__init__()
+        
+        # ✅ Check for GPU availability
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Using device: {self.device}")
+
 
         # Store current states
         self.yawn_state = ''
@@ -59,10 +65,11 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         self.layout.addWidget(self.info_label)
 
 
-        # Load YOLO model
+        # ✅ Load YOLO model and move to CUDA if available
         self.detect_drowsiness = YOLO(r"D:\grad project\driver_fatigue\models\best_ours2.pt")
+        self.detect_drowsiness.to(self.device)
 
-        self.cap = cv2.VideoCapture(0) # Capture video from webcam
+        self.cap = cv2.VideoCapture(1) # Capture video from webcam
         time.sleep(1.000)
         
         # Initialize Gaze & Head Detection Module
@@ -76,7 +83,7 @@ class DrowsinessDetector(QMainWindow):  # Defines DrowsinessDetector, inheriting
         capture_thread → Captures frames.
         process_thread → Processes frames.
         '''
-        self.frame_queue = queue.Queue(maxsize=2)
+        self.frame_queue = queue.Queue(maxsize=1)
         self.stop_event = threading.Event()
 
         self.capture_thread = threading.Thread(target=self.capture_frames)
