@@ -43,6 +43,6 @@ def extract_frames(video_path, output_folder, frame_rate=1):
     print(f"Extracted {saved_frame_count} frames and saved them in '{output_folder}'.")
 
 # Example usage
-video_path = r"D:\grad project\imgClass_AD\WhatsApp Video 2025-01-30 at 22.07.35_2c94b833.mp4"  # Replace with your video file path
-output_folder = r"D:\grad project\imgClass_AD\additional_dataset"  # Replace with your desired output folder
+video_path = r"D:\GRAD_PROJECT\videos\farah_vid1.mp4"  # Replace with your video file path
+output_folder = r"D:\GRAD_PROJECT\trimmed_vid" # Replace with your desired output folder
 extract_frames(video_path, output_folder, frame_rate=10)  # Change frame_rate to control how many frames per second
