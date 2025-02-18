@@ -251,10 +251,14 @@ class GazeAndHeadDetection:
 
                 # Activate buzzer alert
                 self.buzzer_alert()
+                  
 
-                # Stop buzzer after 5 sec and reset distractions
-                root.after(5000, self.stop_buzzer)
-                root.after(9000, self.reset_distraction_flag)
+                # Function to stop the buzzer after 5 seconds
+                Thread(target=lambda: (time.sleep(4), self.stop_buzzer())).start()
+
+                # Function to reset distraction flag after 9 seconds
+                Thread(target=lambda: (time.sleep(7), self.reset_distraction_flag())).start()
+
 
             elif elapsed_time_counter >= 180:  # Reset counter every 3 minutes
                 print("⏳ 3 minutes passed. Resetting counter.")
@@ -402,7 +406,8 @@ class GazeAndHeadDetection:
         start_time_counter = time.time()  
 
         # Run action_after_buzzer() after 1 second
-        root.after(1000 , self.action_after_buzzer)
+        # Run `action_after_buzzer` after 1 second without blocking the GUI
+        Thread(target=lambda: (time.sleep(1), self.action_after_buzzer())).start()
 
     def buzzer_alert(self):
         global buzzer_running
