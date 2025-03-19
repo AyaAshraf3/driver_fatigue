@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn  # Neural network module for building models.
 import torchvision.transforms as transforms
 import torchvision.models as models
 import cv2
@@ -6,30 +7,32 @@ from PIL import Image
 import os
 
 # Configuration
-model_path = "The_Best_Model.pth"  # Update with the actual best model path
-image_folder = "./Final_Test"  # Folder containing images for testing
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+image_folder = "./Test_Final"  # Folder containing images for testing
+device = torch.device("cuda")
 
 # Load Model
-model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-num_features = model.fc.in_features
-model.fc = torch.nn.Sequential(
-    torch.nn.Dropout(0.5),
-    torch.nn.Linear(num_features, 8)  # Update class count if different
-)
-model.load_state_dict(torch.load(model_path, map_location=device))
+model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1)
+
+in_features = model.classifier[-1].in_features  # Access last layer dynamically
+model.classifier[-1] = nn.Linear(in_features, 5)
+
+model.features[0][0] = nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1, bias=False)
+
+model.load_state_dict(torch.load('./Models/FER2013/Models FER with AffectNet Greyscale/Model_E34.pth', map_location=device))
 model.to(device)
 model.eval()
 
 # Define Image Preprocessing
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
+        transforms.Resize(224),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5])  # Adjusted for grayscale images
 ])
 
 # Load Class Names
-emotion_labels = ['Angry','Contempt', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+emotion_labels = ["Anger", "Fear", "Happy", "Neutral", "Sad"]
 
 
 # Process Images in Folder
