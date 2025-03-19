@@ -1,33 +1,40 @@
 import cv2
 import torch
 import torch.nn as nn
+from PIL import Image
+
 import numpy as np
 from torchvision import transforms
 import torchvision.models as models
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load your trained model
-model = models.resnet18(pretrained=False)
-num_features = model.fc.in_features
-model.fc = nn.Linear(num_features, 8)  # Adjust 7 to your number of classes
-model.load_state_dict(torch.load('best_model.pth'))
+model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1)
+in_features = model.classifier[-1].in_features  # Access last layer dynamically
+model.classifier[-1] = nn.Linear(in_features, 5)
+
+model.features[0][0] = nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1, bias=False)
+
+model.load_state_dict(torch.load('./Models/FER2013/Models FER with AffectNet Greyscale/Model_E45.pth', map_location=device))
 model.eval()
-model = model.to('cuda')
+model = model.to(device)
 
 # Define transformations
 transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
+        transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
+        transforms.Resize(224),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5])  # Adjusted for grayscale images
 ])
+
 
 # Load face detection classifier
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 # Define class labels (adjust to your dataset)
-emotion_labels = ['Angry','Contempt', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+emotion_labels = ["Anger", "Fear", "Happy", "Neutral", "Sad"]
 
 # Initialize webcam
 cap = cv2.VideoCapture(0)
@@ -41,7 +48,9 @@ while True:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     # Detect faces
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+   # faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
     
     for (x, y, w, h) in faces:
         # Extract face ROI
@@ -49,20 +58,29 @@ while True:
         
         # Convert to RGB and apply transformations
         face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-        device = torch.device("cuda")
-        transformed = transform(face_rgb).unsqueeze(0).to(device)
+
+
+        # Convert to PIL image for proper transformation handling
+        face_pil = Image.fromarray(face_rgb)
+        transformed = transform(face_pil).unsqueeze(0).to(device)
+
+        #transformed = transform(face_rgb).unsqueeze(0).to(device)
         
         # Make prediction
         with torch.no_grad():
             outputs = model(transformed)
             _, predicted = torch.max(outputs, 1)
             emotion = emotion_labels[predicted.item()]
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)[0] * 100
+            probabilities = torch.softmax(outputs, dim=1)[0] * 100
+            confidence, predicted_idx = torch.max(probabilities, 0)
+            predicted_class = emotion_labels[predicted_idx.item()]
         
         # Draw rectangle and emotion text
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        cv2.putText(frame, f'{emotion} {probabilities[predicted].item():.1f}%', 
-                    (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+
+         # Add text (class name and confidence score)
+        label = f"{predicted_class}: {confidence.item() :.2f}%"
+        cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     # Display the resulting frame
     cv2.imshow('Emotion Recognition', frame)
